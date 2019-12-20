@@ -31,7 +31,8 @@ func main() {
 	viper.SetDefault("MsgAlbumClosed", "Album closed")
 	viper.SetDefault("MsgDoNotUnderstand", "Unknown command")
 	viper.SetDefault("MsgNoUsername", "Sorry, you need to set your username")
-	viper.SetDefault("MsgThankYou", "Thanks!")
+	viper.SetDefault("MsgThankYouMedia", "Got it, thanks!")
+	viper.SetDefault("MsgThankYouText", "Thank you!")
 
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
@@ -169,7 +170,7 @@ func main() {
 					continue
 				}
 				//dispatchMessage(bot, update.Message)
-				replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
+				replyWithMessage(bot, update.Message, viper.GetString("MsgThankYouText"))
 			}
 		} else if update.Message.Photo != nil {
 			if !albumAlreadyOpen() {
@@ -184,7 +185,7 @@ func main() {
 				continue
 			}
 			dispatchMessage(bot, update.Message)
-			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
+			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYouMedia"))
 		} else if update.Message.Video != nil {
 			if !albumAlreadyOpen() {
 				replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
@@ -198,7 +199,7 @@ func main() {
 				continue
 			}
 			dispatchMessage(bot, update.Message)
-			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
+			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYouMedia"))
 		}
 	}
 }
@@ -252,7 +253,7 @@ func dispatchMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 	users := viper.GetStringSlice("AuthorizedUsers")
 	for _, user := range users {
 		if user != message.From.UserName {
-			if _, ok := chatDB[message.From.UserName]; !ok {
+			if _, ok := chatDB[user]; !ok {
 				log.Printf("[%s] The chat db does not have any mapping for %s, skipping...", message.From.UserName, user)
 				continue
 			}
