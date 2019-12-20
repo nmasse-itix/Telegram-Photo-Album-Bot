@@ -131,7 +131,7 @@ func main() {
 						continue
 					}
 					
-					err := newAlbum(username, albumName)
+					err := newAlbum(update.Message, albumName)
 					if err != nil {
 						log.Printf("[%s] cannot create album '%s': %s", username, albumName, err)
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgServerError"))
@@ -139,6 +139,18 @@ func main() {
 					}
 
 					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumCreated"))
+				} else if strings.HasPrefix(text, "/info") {
+					if albumAlreadyOpen() {
+						albumName, err := getInfo()
+						if err != nil {
+							log.Printf("[%s] cannot close current album: %s", username, err)
+							replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgServerError"))
+							continue
+						}
+						replyWithMessage(bot, update.Message, fmt.Sprintf(viper.GetString("MsgInfo"), albumName))
+					} else {
+						replyWithMessage(bot, update.Message, viper.GetString("MsgInfoNoAlbum"))
+					}
 				} else if strings.HasPrefix(text, "/cloreAlbum") {
 					if !albumAlreadyOpen() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
@@ -403,12 +415,34 @@ func closeAlbum() error {
 		return err
 	}
 
-	err = os.Rename(target_dir + "/data/.current/", target_dir + "/data/" + metadata["folder"])
+	date, err := time.Parse("2006-01-02T15:04:05-0700", metadata["date"])
+	if err != nil {
+		return err
+	}
+
+	folderName := date.Format("2006-01-02") + "-" + sanitizeAlbumName(metadata["title"])
+	err = os.Rename(target_dir + "/data/.current/", target_dir + "/data/" + folderName)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func getInfo() (string, error) {
+	target_dir := viper.GetString("TargetDir")
+	yamlData, err := ioutil.ReadFile(target_dir + "/data/.current/meta.yaml")
+	if err != nil {
+		return "", err
+	}
+
+	var metadata map[string]string = make(map[string]string)
+	err = yaml.UnmarshalStrict(yamlData, &metadata)
+	if err != nil {
+		return "", err
+	}
+
+	return metadata["title"], nil
 }
 
 func albumAlreadyOpen() bool {
@@ -417,14 +451,16 @@ func albumAlreadyOpen() bool {
 	return err == nil
 }
 
-func newAlbum(username string, albumName string) error {
+func newAlbum(message *tgbotapi.Message, albumName string) error {
 	target_dir := viper.GetString("TargetDir")
 	os.MkdirAll(target_dir + "/data/.current", os.ModePerm)
 
 	metadata := map[string]string{
 		"title": albumName,
+		"username": message.From.UserName,
+		"firstname": message.From.FirstName,
+		"lastname": message.From.LastName,
 		"date": time.Now().Format("2006-01-02T15:04:05-0700"),
-		"folder": fmt.Sprintf("%s-%s", time.Now().Format("2006-01-02"), sanitizeAlbumName(albumName)),
 	}
 
 	yamlData, err := yaml.Marshal(metadata) 
@@ -433,11 +469,6 @@ func newAlbum(username string, albumName string) error {
 	}
 
 	err = ioutil.WriteFile(target_dir + "/data/.current/meta.yaml", yamlData, 0644)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(target_dir + "/data/.current/chat.yaml", []byte{}, 0644)
 	if err != nil {
 		return err
 	}
@@ -468,7 +499,7 @@ func addMessageToAlbum(message *tgbotapi.Message) error {
 }
 
 func appendToFile(filename string, data []byte) error {
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
