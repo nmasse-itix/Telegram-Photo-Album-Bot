@@ -31,6 +31,7 @@ func main() {
 	viper.SetDefault("MsgAlbumClosed", "Album closed")
 	viper.SetDefault("MsgDoNotUnderstand", "Unknown command")
 	viper.SetDefault("MsgNoUsername", "Sorry, you need to set your username")
+	viper.SetDefault("MsgThankYou", "Thanks!")
 
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
@@ -136,7 +137,7 @@ func main() {
 						continue
 					}
 
-					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgAlbumCreated"))
+					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumCreated"))
 				} else if strings.HasPrefix(text, "/cloreAlbum") {
 					if !albumAlreadyOpen() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
@@ -150,7 +151,7 @@ func main() {
 						continue
 					}
 	
-					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgAlbumClosed"))
+					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumClosed"))
 				} else {
 					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgDoNotUnderstand"))
 					continue
@@ -168,6 +169,7 @@ func main() {
 					continue
 				}
 				//dispatchMessage(bot, update.Message)
+				replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
 			}
 		} else if update.Message.Photo != nil {
 			if !albumAlreadyOpen() {
@@ -182,6 +184,7 @@ func main() {
 				continue
 			}
 			dispatchMessage(bot, update.Message)
+			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
 		} else if update.Message.Video != nil {
 			if !albumAlreadyOpen() {
 				replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
@@ -195,6 +198,7 @@ func main() {
 				continue
 			}
 			dispatchMessage(bot, update.Message)
+			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYou"))
 		}
 	}
 }
@@ -284,6 +288,8 @@ func handlePhoto(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 		"type": "photo",
 		"date": t.Format("2006-01-02T15:04:05-0700"),
 		"username": message.From.UserName,
+		"firstname": message.From.FirstName,
+		"lastname": message.From.LastName,
 		"filename": photoFileName,
 	}}
 
@@ -313,6 +319,8 @@ func handleVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 		"type": "video",
 		"date": t.Format("2006-01-02T15:04:05-0700"),
 		"username": message.From.UserName,
+		"firstname": message.From.FirstName,
+		"lastname": message.From.LastName,
 		"filename": videoFileName,
 		"thumb_filename": thumbFileName,
 	}}
@@ -445,6 +453,8 @@ func addMessageToAlbum(message *tgbotapi.Message) error {
 		"type": "text",
 		"date": t.Format("2006-01-02T15:04:05-0700"),
 		"username": message.From.UserName,
+		"firstname": message.From.FirstName,
+		"lastname": message.From.LastName,
 		"message": message.Text,
 	}}
 
