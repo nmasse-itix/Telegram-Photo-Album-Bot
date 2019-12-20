@@ -115,16 +115,17 @@ func main() {
 		}
 
 		if text != "" {
-			if strings.HasPrefix(text, "/") {
+			if update.Message.IsCommand() {
 				log.Printf("[%s] command: %s", username, text)
-				if strings.HasPrefix(text, "/start") || strings.HasPrefix(text, "/aide") || strings.HasPrefix(text, "/help") {
+				switch update.Message.Command() {
+				case "start", "aide", "help":
 					replyWithMessage(bot, update.Message, viper.GetString("MsgHelp"))
-				} else if strings.HasPrefix(text, "/nouvelAlbum") {
+				case "nouvelAlbum":
 					if len(text) < 14 {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgMissingAlbumName"))
 						continue
 					}
-					albumName := text[13:len(text)]
+					albumName := update.Message.CommandArguments()
 
 					if albumAlreadyOpen() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgAlbumAlreadyCreated"))
@@ -139,7 +140,7 @@ func main() {
 					}
 
 					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumCreated"))
-				} else if strings.HasPrefix(text, "/info") {
+				case "info":
 					if albumAlreadyOpen() {
 						albumName, err := getInfo()
 						if err != nil {
@@ -151,7 +152,7 @@ func main() {
 					} else {
 						replyWithMessage(bot, update.Message, viper.GetString("MsgInfoNoAlbum"))
 					}
-				} else if strings.HasPrefix(text, "/cloreAlbum") {
+				case "cloreAlbum":
 					if !albumAlreadyOpen() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
 						continue
@@ -165,7 +166,7 @@ func main() {
 					}
 	
 					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumClosed"))
-				} else {
+				default:
 					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgDoNotUnderstand"))
 					continue
 				}

@@ -94,3 +94,5 @@ service photo-bot start
 ## Documentation
 
 - https://core.telegram.org/bots/api
+- https://go-telegram-bot-api.github.io
+- https://github.com/go-telegram-bot-api/telegram-bot-api
