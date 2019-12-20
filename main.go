@@ -1,21 +1,21 @@
 package main
 
 import (
-	"log"
-	"os"
-	"io"
-	"net/http"
 	"fmt"
-	"strings"
-	"time"
-	"io/ioutil"
-	"regexp"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/spf13/viper"
-	"unicode"
-    "golang.org/x/text/transform"
+	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+	"unicode"
 )
 
 var chatDB map[string]int64 = make(map[string]int64)
@@ -55,7 +55,7 @@ func main() {
 	}
 
 	target_dir := viper.GetString("TargetDir")
-	if (target_dir == "") {
+	if target_dir == "" {
 		panic("No target directory provided!")
 	}
 	_, err = os.Stat(target_dir)
@@ -69,11 +69,11 @@ func main() {
 	}
 	authorized_users := map[string]bool{}
 	for _, item := range authorized_users_list {
-        authorized_users[item] = true
-    }
+		authorized_users[item] = true
+	}
 
 	token := viper.GetString("TelegramToken")
-	if (token == "") {
+	if token == "" {
 		panic("No Telegram Bot Token provided!")
 	}
 
@@ -99,11 +99,11 @@ func main() {
 		text := update.Message.Text
 		username := update.Message.From.UserName
 
-		if (username == "") {
+		if username == "" {
 			replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoUsername"))
 			continue
 		}
-		if (! authorized_users[username]) {
+		if !authorized_users[username] {
 			log.Printf("[%s] unauthorized user", username)
 			replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgForbidden"))
 			continue
@@ -131,7 +131,7 @@ func main() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgAlbumAlreadyCreated"))
 						continue
 					}
-					
+
 					err := newAlbum(update.Message, albumName)
 					if err != nil {
 						log.Printf("[%s] cannot create album '%s': %s", username, albumName, err)
@@ -164,7 +164,7 @@ func main() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgServerError"))
 						continue
 					}
-	
+
 					replyWithMessage(bot, update.Message, viper.GetString("MsgAlbumClosed"))
 				default:
 					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgDoNotUnderstand"))
@@ -233,14 +233,14 @@ func updateChatDB(message *tgbotapi.Message) error {
 
 	if _, ok := chatDB[message.From.UserName]; !ok {
 		chatDB[message.From.UserName] = message.Chat.ID
-	
-		yamlData, err := yaml.Marshal(chatDB) 
+
+		yamlData, err := yaml.Marshal(chatDB)
 		if err != nil {
 			return err
 		}
-	
-		os.MkdirAll(target_dir + "/db/", os.ModePerm)
-		err = ioutil.WriteFile(target_dir + "/db/chatdb.yaml", yamlData, 0644)
+
+		os.MkdirAll(target_dir+"/db/", os.ModePerm)
+		err = ioutil.WriteFile(target_dir+"/db/chatdb.yaml", yamlData, 0644)
 		if err != nil {
 			return err
 		}
@@ -272,7 +272,7 @@ func dispatchMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 			}
 
 			msg := tgbotapi.NewForward(chatDB[user], message.Chat.ID, message.MessageID)
-			
+
 			_, err := bot.Send(msg)
 			if err != nil {
 				log.Printf("[%s] Cannot dispatch message to %s (chat id = %d)", message.From.UserName, user, chatDB[user])
@@ -284,7 +284,7 @@ func dispatchMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message) {
 func handlePhoto(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 	fileId := ""
 	maxWidth := 0
-	for _, photo := range (*message.Photo) {
+	for _, photo := range *message.Photo {
 		if photo.Width > maxWidth {
 			fileId = photo.FileID
 			maxWidth = photo.Width
@@ -299,21 +299,21 @@ func handlePhoto(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 	// parse the message timestamp
 	t := time.Unix(int64(message.Date), 0)
 	chat := [1]map[string]string{{
-		"type": "photo",
-		"date": t.Format("2006-01-02T15:04:05-0700"),
-		"username": message.From.UserName,
+		"type":      "photo",
+		"date":      t.Format("2006-01-02T15:04:05-0700"),
+		"username":  message.From.UserName,
 		"firstname": message.From.FirstName,
-		"lastname": message.From.LastName,
-		"filename": photoFileName,
+		"lastname":  message.From.LastName,
+		"filename":  photoFileName,
 	}}
 
-	yamlData, err := yaml.Marshal(chat) 
+	yamlData, err := yaml.Marshal(chat)
 	if err != nil {
 		return err
 	}
 
 	target_dir := viper.GetString("TargetDir")
-	return appendToFile(target_dir + "/data/.current/chat.yaml", yamlData)
+	return appendToFile(target_dir+"/data/.current/chat.yaml", yamlData)
 }
 
 func handleVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
@@ -330,22 +330,22 @@ func handleVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 	// parse the message timestamp
 	t := time.Unix(int64(message.Date), 0)
 	chat := [1]map[string]string{{
-		"type": "video",
-		"date": t.Format("2006-01-02T15:04:05-0700"),
-		"username": message.From.UserName,
-		"firstname": message.From.FirstName,
-		"lastname": message.From.LastName,
-		"filename": videoFileName,
+		"type":           "video",
+		"date":           t.Format("2006-01-02T15:04:05-0700"),
+		"username":       message.From.UserName,
+		"firstname":      message.From.FirstName,
+		"lastname":       message.From.LastName,
+		"filename":       videoFileName,
 		"thumb_filename": thumbFileName,
 	}}
 
-	yamlData, err := yaml.Marshal(chat) 
+	yamlData, err := yaml.Marshal(chat)
 	if err != nil {
 		return err
 	}
 
 	target_dir := viper.GetString("TargetDir")
-	return appendToFile(target_dir + "/data/.current/chat.yaml", yamlData)
+	return appendToFile(target_dir+"/data/.current/chat.yaml", yamlData)
 }
 
 func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (string, error) {
@@ -356,10 +356,10 @@ func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (st
 
 	resp, err := http.Get(url)
 	if err != nil {
-	   return "", err
+		return "", err
 	}
 	defer resp.Body.Close()
-   
+
 	// Only the first 512 bytes are used to sniff the content type.
 	buffer := make([]byte, 512)
 
@@ -384,7 +384,7 @@ func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (st
 	filename := target_dir + "/data/.current/" + fileId + extension
 	out, err := os.Create(filename)
 	if err != nil {
-	   return "", err
+		return "", err
 	}
 	defer out.Close()
 
@@ -393,13 +393,13 @@ func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (st
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Write the rest of the body to file
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return "", err
 	}
-	
+
 	return fileId + extension, nil
 }
 
@@ -422,7 +422,7 @@ func closeAlbum() error {
 	}
 
 	folderName := date.Format("2006-01-02") + "-" + sanitizeAlbumName(metadata["title"])
-	err = os.Rename(target_dir + "/data/.current/", target_dir + "/data/" + folderName)
+	err = os.Rename(target_dir+"/data/.current/", target_dir+"/data/"+folderName)
 	if err != nil {
 		return err
 	}
@@ -454,22 +454,22 @@ func albumAlreadyOpen() bool {
 
 func newAlbum(message *tgbotapi.Message, albumName string) error {
 	target_dir := viper.GetString("TargetDir")
-	os.MkdirAll(target_dir + "/data/.current", os.ModePerm)
+	os.MkdirAll(target_dir+"/data/.current", os.ModePerm)
 
 	metadata := map[string]string{
-		"title": albumName,
-		"username": message.From.UserName,
+		"title":     albumName,
+		"username":  message.From.UserName,
 		"firstname": message.From.FirstName,
-		"lastname": message.From.LastName,
-		"date": time.Now().Format("2006-01-02T15:04:05-0700"),
+		"lastname":  message.From.LastName,
+		"date":      time.Now().Format("2006-01-02T15:04:05-0700"),
 	}
 
-	yamlData, err := yaml.Marshal(metadata) 
+	yamlData, err := yaml.Marshal(metadata)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(target_dir + "/data/.current/meta.yaml", yamlData, 0644)
+	err = ioutil.WriteFile(target_dir+"/data/.current/meta.yaml", yamlData, 0644)
 	if err != nil {
 		return err
 	}
@@ -483,20 +483,20 @@ func addMessageToAlbum(message *tgbotapi.Message) error {
 	// parse the message timestamp
 	t := time.Unix(int64(message.Date), 0)
 	chat := [1]map[string]string{{
-		"type": "text",
-		"date": t.Format("2006-01-02T15:04:05-0700"),
-		"username": message.From.UserName,
+		"type":      "text",
+		"date":      t.Format("2006-01-02T15:04:05-0700"),
+		"username":  message.From.UserName,
 		"firstname": message.From.FirstName,
-		"lastname": message.From.LastName,
-		"message": message.Text,
+		"lastname":  message.From.LastName,
+		"message":   message.Text,
 	}}
 
-	yamlData, err := yaml.Marshal(chat) 
+	yamlData, err := yaml.Marshal(chat)
 	if err != nil {
 		return err
 	}
 
-	return appendToFile(target_dir + "/data/.current/chat.yaml", yamlData)
+	return appendToFile(target_dir+"/data/.current/chat.yaml", yamlData)
 }
 
 func appendToFile(filename string, data []byte) error {
@@ -513,11 +513,11 @@ func appendToFile(filename string, data []byte) error {
 
 func sanitizeAlbumName(albumName string) string {
 	albumName = strings.ToLower(albumName)
-    t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
 		return unicode.Is(unicode.Mn, r)
 	}), norm.NFC)
 	albumName, _, _ = transform.String(t, albumName)
-	
+
 	reg, err := regexp.Compile("\\s+")
 	if err != nil {
 		panic(fmt.Errorf("Cannot compile regex: %s", err))
