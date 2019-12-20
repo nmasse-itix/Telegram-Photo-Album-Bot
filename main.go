@@ -30,6 +30,7 @@ func main() {
 	viper.SetDefault("MsgNoAlbum", "No album is currently open")
 	viper.SetDefault("MsgAlbumClosed", "Album closed")
 	viper.SetDefault("MsgDoNotUnderstand", "Unknown command")
+	viper.SetDefault("MsgNoUsername", "Sorry, you need to set your username")
 
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
@@ -38,6 +39,17 @@ func main() {
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Cannot read config file: %s\n", err))
+	}
+
+	logFile := viper.GetString("LogFile")
+	var logHandle *os.File
+	if logFile != "" {
+		logHandle, err = os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			panic(fmt.Errorf("Cannot open log file '%s': %s\n", logFile, err))
+		}
+		defer logHandle.Close()
+		log.SetOutput(logHandle)
 	}
 
 	target_dir := viper.GetString("TargetDir")
@@ -86,6 +98,7 @@ func main() {
 		username := update.Message.From.UserName
 
 		if (username == "") {
+			replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoUsername"))
 			continue
 		}
 		if (! authorized_users[username]) {
@@ -94,7 +107,10 @@ func main() {
 			continue
 		}
 
-		updateChatDB(update.Message)
+		err := updateChatDB(update.Message)
+		if err != nil {
+			log.Printf("[%s] cannot update chat db: %s", username, err)
+		}
 
 		if text != "" {
 			if strings.HasPrefix(text, "/") {
@@ -365,12 +381,6 @@ func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (st
 	return fileId + extension, nil
 }
 
-type AlbumMetadata struct {
-	Title string `yaml:"title"`
-	Date string `yaml:"date"`
-	Folder string `yaml:"folder"`
-}
-
 func closeAlbum() error {
 	target_dir := viper.GetString("TargetDir")
 	yamlData, err := ioutil.ReadFile(target_dir + "/data/.current/meta.yaml")
@@ -378,13 +388,13 @@ func closeAlbum() error {
 		return err
 	}
 
-	var metadata AlbumMetadata
+	var metadata map[string]string = make(map[string]string)
 	err = yaml.UnmarshalStrict(yamlData, &metadata)
 	if err != nil {
 		return err
 	}
 
-	err = os.Rename(target_dir + "/data/.current/", target_dir + "/data/" + metadata.Folder)
+	err = os.Rename(target_dir + "/data/.current/", target_dir + "/data/" + metadata["folder"])
 	if err != nil {
 		return err
 	}
