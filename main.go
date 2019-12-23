@@ -213,6 +213,10 @@ func main() {
 			}
 			dispatchMessage(bot, update.Message)
 			replyWithMessage(bot, update.Message, viper.GetString("MsgThankYouMedia"))
+		} else {
+			log.Printf("[%s] cannot handle this type of message", username)
+			replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgDoNotUnderstand"))
+			continue
 		}
 	}
 }
