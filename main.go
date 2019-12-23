@@ -299,12 +299,14 @@ func handlePhoto(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 	// parse the message timestamp
 	t := time.Unix(int64(message.Date), 0)
 	chat := [1]map[string]string{{
-		"type":      "photo",
-		"date":      t.Format("2006-01-02T15:04:05-0700"),
-		"username":  message.From.UserName,
-		"firstname": message.From.FirstName,
-		"lastname":  message.From.LastName,
-		"filename":  photoFileName,
+		"type":           "photo",
+		"date":           t.Format("2006-01-02T15:04:05-0700"),
+		"from":           "telegram",
+		"telegramFileId": fileId,
+		"username":       message.From.UserName,
+		"firstname":      message.From.FirstName,
+		"lastname":       message.From.LastName,
+		"filename":       photoFileName,
 	}}
 
 	yamlData, err := yaml.Marshal(chat)
@@ -332,6 +334,8 @@ func handleVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 	chat := [1]map[string]string{{
 		"type":           "video",
 		"date":           t.Format("2006-01-02T15:04:05-0700"),
+		"from":           "telegram",
+		"telegramFileId": message.Video.FileID,
 		"username":       message.From.UserName,
 		"firstname":      message.From.FirstName,
 		"lastname":       message.From.LastName,
@@ -458,6 +462,7 @@ func newAlbum(message *tgbotapi.Message, albumName string) error {
 
 	metadata := map[string]string{
 		"title":     albumName,
+		"from":      "telegram",
 		"username":  message.From.UserName,
 		"firstname": message.From.FirstName,
 		"lastname":  message.From.LastName,
@@ -485,6 +490,7 @@ func addMessageToAlbum(message *tgbotapi.Message) error {
 	chat := [1]map[string]string{{
 		"type":      "text",
 		"date":      t.Format("2006-01-02T15:04:05-0700"),
+		"from":      "telegram",
 		"username":  message.From.UserName,
 		"firstname": message.From.FirstName,
 		"lastname":  message.From.LastName,
