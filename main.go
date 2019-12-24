@@ -2,11 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/spf13/viper"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,6 +11,12 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/spf13/viper"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
+	"gopkg.in/yaml.v2"
 )
 
 var chatDB map[string]int64 = make(map[string]int64)
@@ -33,6 +34,7 @@ func main() {
 	viper.SetDefault("MsgNoUsername", "Sorry, you need to set your username")
 	viper.SetDefault("MsgThankYouMedia", "Got it, thanks!")
 	viper.SetDefault("MsgThankYouText", "Thank you!")
+	viper.SetDefault("MsgSendMeSomething", "OK. Send me something.")
 
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
@@ -152,6 +154,12 @@ func main() {
 					} else {
 						replyWithMessage(bot, update.Message, viper.GetString("MsgInfoNoAlbum"))
 					}
+				case "pourLouise":
+					if !albumAlreadyOpen() {
+						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
+						continue
+					}
+					replyWithForcedReply(bot, update.Message, viper.GetString("MsgSendMeSomething"))
 				case "cloreAlbum":
 					if !albumAlreadyOpen() {
 						replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgNoAlbum"))
@@ -182,7 +190,6 @@ func main() {
 					replyToCommandWithMessage(bot, update.Message, viper.GetString("MsgServerError"))
 					continue
 				}
-				//dispatchMessage(bot, update.Message)
 				replyWithMessage(bot, update.Message, viper.GetString("MsgThankYouText"))
 			}
 		} else if update.Message.Photo != nil {
@@ -251,6 +258,16 @@ func updateChatDB(message *tgbotapi.Message) error {
 	}
 
 	return nil
+}
+
+func replyWithForcedReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) error {
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ReplyMarkup = tgbotapi.ForceReply{
+		ForceReply: true,
+		Selective:  true,
+	}
+	_, err := bot.Send(msg)
+	return err
 }
 
 func replyToCommandWithMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) error {
