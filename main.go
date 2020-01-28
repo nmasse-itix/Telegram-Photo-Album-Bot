@@ -328,6 +328,7 @@ func handlePhoto(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 		"firstname":      message.From.FirstName,
 		"lastname":       message.From.LastName,
 		"filename":       photoFileName,
+		"message":        message.Caption,
 	}}
 
 	yamlData, err := yaml.Marshal(chat)
@@ -362,6 +363,7 @@ func handleVideo(bot *tgbotapi.BotAPI, message *tgbotapi.Message) error {
 		"lastname":       message.From.LastName,
 		"filename":       videoFileName,
 		"thumb_filename": thumbFileName,
+		"message":        message.Caption,
 	}}
 
 	yamlData, err := yaml.Marshal(chat)
@@ -395,13 +397,14 @@ func getFile(bot *tgbotapi.BotAPI, message *tgbotapi.Message, fileId string) (st
 
 	// Detect the content-type
 	contentType := http.DetectContentType(buffer)
-	extension := ".bin"
+	var extension string
 	if contentType == "image/jpeg" {
 		extension = ".jpeg"
 	} else if contentType == "video/mp4" {
 		extension = ".mp4"
 	} else {
 		log.Printf("[%s] Unknown media content-type '%s'", message.From.UserName, contentType)
+		extension = ".bin"
 	}
 
 	// Create the file
