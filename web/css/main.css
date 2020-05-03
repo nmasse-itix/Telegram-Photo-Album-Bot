@@ -8,11 +8,11 @@ h1 {
 
 /* Album */
 
-body {
+body.album {
     margin: 3vh;
 }
 
-ul {
+.album ul {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -20,27 +20,27 @@ ul {
     margin: 0;
 }
 
-li {
+.album li {
     height: 20vh;
     flex-grow: 0.5;
     list-style-type: none;
 }
 
 
-li img, li video {
+.album li img, .album li video {
     max-height: 100%;
     min-width: 100%;
     object-fit: cover;
     vertical-align: bottom;
 }
 
-li:last-child {
+.album li:last-child {
     flex-grow: 10;
 }
 
 /* Album */
 
-div {
+.media div {
     height: 100%;
     width: 100%;
     display: flex;
@@ -62,6 +62,6 @@ body.media h1 {
     
 }
 
-div img, div video {
+.media div img, .media div video {
     object-fit: contain;
 }

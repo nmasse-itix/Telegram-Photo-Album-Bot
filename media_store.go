@@ -89,7 +89,21 @@ func appendToFile(filename string, data []byte) error {
 	return nil
 }
 
-func (store *MediaStore) ListAlbums() ([]Album, error) {
+type AlbumList []Album
+
+func (list AlbumList) Len() int {
+	return len(list)
+}
+
+func (list AlbumList) Less(i, j int) bool {
+	return list[i].Date.Before(list[j].Date)
+}
+
+func (list AlbumList) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
+}
+
+func (store *MediaStore) ListAlbums() (AlbumList, error) {
 	files, err := ioutil.ReadDir(store.StoreLocation)
 	if err != nil {
 		return nil, err

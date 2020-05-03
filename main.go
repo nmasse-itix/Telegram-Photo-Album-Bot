@@ -17,6 +17,7 @@ func initConfig() {
 	viper.SetDefault("RetryDelay", 60)
 	// max duration between two telegram updates
 	viper.SetDefault("TelegramNewUpdateTimeout", 60)
+	viper.SetDefault("SiteName", "My photo album")
 
 	// Default messages
 	viper.SetDefault("MsgForbidden", "Access Denied")
@@ -63,7 +64,7 @@ func validateConfig() {
 
 	retryDelay := viper.GetInt("RetryDelay")
 	if retryDelay <= 0 {
-		log.Fatal("The TelegramNewUpdateTimeout cannot be zero or negative!")
+		log.Fatal("The RetryDelay cannot be zero or negative!")
 	}
 
 	timeout := viper.GetInt("TelegramNewUpdateTimeout")

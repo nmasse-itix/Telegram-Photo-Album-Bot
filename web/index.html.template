@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ .Title }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="index">
+<h1>{{ .Title }}</h1>
+<ul>
+{{ range .Albums }}
+<li>
+{{ if eq .ID "" }}
+<a href="latest/">{{ .Date|short }} {{ .Title }}</a>
+{{ else }}
+<a href="{{ .ID }}/">{{ .Date|short }} {{ .Title }}</a>
+{{ end }}
+</li>
+{{ end }}
+</ul>
+</body>
+</html>

@@ -7,10 +7,13 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"sort"
 	"strings"
+	"time"
 
 	_ "github.com/nmasse-itix/Telegram-Photo-Album-Bot/statik"
 	"github.com/rakyll/statik/fs"
+	"github.com/spf13/viper"
 )
 
 func slurpFile(statikFS http.FileSystem, filename string) (string, error) {
@@ -52,6 +55,9 @@ func getTemplate(statikFS http.FileSystem, filename string, name string) (*templ
 			}
 			return ""
 		},
+		"short": func(t time.Time) string {
+			return t.Format("2006-01")
+		},
 	}
 
 	return tmpl.Funcs(customFunctions).Parse(content)
@@ -76,6 +82,7 @@ func ShiftPath(p string) (head, tail string) {
 type WebInterface struct {
 	AlbumTemplate *template.Template
 	MediaTemplate *template.Template
+	IndexTemplate *template.Template
 }
 
 func (bot *PhotoBot) ServeWebInterface(listenAddr string) {
@@ -90,6 +97,11 @@ func (bot *PhotoBot) ServeWebInterface(listenAddr string) {
 	}
 
 	bot.WebInterface.MediaTemplate, err = getTemplate(statikFS, "/media.html.template", "media")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bot.WebInterface.IndexTemplate, err = getTemplate(statikFS, "/index.html.template", "index")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -121,12 +133,35 @@ func (bot *PhotoBot) HandleDisplayAlbum(w http.ResponseWriter, r *http.Request, 
 
 	album, err := bot.MediaStore.GetAlbum(albumName, false)
 	if err != nil {
-		log.Printf("GetAlbum: %s", err)
+		log.Printf("MediaStore.GetAlbum: %s", err)
 		bot.HandleError(w, r)
 		return
 	}
 
 	err = bot.WebInterface.AlbumTemplate.Execute(w, album)
+	if err != nil {
+		log.Printf("Template.Execute: %s", err)
+		bot.HandleError(w, r)
+		return
+	}
+}
+
+func (bot *PhotoBot) HandleDisplayIndex(w http.ResponseWriter, r *http.Request) {
+	albums, err := bot.MediaStore.ListAlbums()
+	if err != nil {
+		log.Printf("MediaStore.ListAlbums: %s", err)
+		bot.HandleError(w, r)
+		return
+	}
+
+	sort.Sort(sort.Reverse(albums))
+	err = bot.WebInterface.IndexTemplate.Execute(w, struct {
+		Title  string
+		Albums []Album
+	}{
+		viper.GetString("SiteName"),
+		albums,
+	})
 	if err != nil {
 		log.Printf("Template.Execute: %s", err)
 		bot.HandleError(w, r)
@@ -202,8 +237,19 @@ func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					bot.HandleDisplayMedia(w, r, albumName, media)
 					return
 				}
+			} else {
+				if !strings.HasSuffix(originalPath, "/") {
+					http.Redirect(w, r, originalPath+"/", http.StatusMovedPermanently)
+					return
+				}
+				bot.HandleDisplayIndex(w, r)
+				return
 			}
+		} else if resource == "" {
+			http.Redirect(w, r, "/album/", http.StatusMovedPermanently)
+			return
 		}
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
