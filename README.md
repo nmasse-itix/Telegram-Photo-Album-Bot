@@ -8,6 +8,13 @@ Fetch dependencies.
 go get -u github.com/go-telegram-bot-api/telegram-bot-api
 go get -u github.com/spf13/viper
 go get -u gopkg.in/yaml.v2
+go get -u github.com/rakyll/statik
+```
+
+Pack all web files
+
+```sh
+go generate
 ```
 
 Compile for Raspberry PI.

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ .Caption }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="media">
+{{ if ne .Caption "" }}
+<h1>{{ .Caption }}</h1>
+{{ end }}
+<div>
+{{ if eq .Type "photo" }}
+<img src="../../raw/{{ .Files|photo }}" />
+{{ else if eq .Type "video" }}
+<video controls autoplay poster="../../raw/{{ .Files|photo }}">
+<source src="../../raw/{{ .Files|video }}" type="video/mp4">
+</video>
+{{ end }}
+</div>
+</body>
+</html>

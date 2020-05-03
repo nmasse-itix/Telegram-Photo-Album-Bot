@@ -1,3 +1,5 @@
+//go:generate statik -src=web/ -include=*.html,*.css,*.js,*.template
+
 package main
 
 import (
@@ -74,6 +76,11 @@ func validateConfig() {
 		log.Fatal("No Telegram Bot Token provided!")
 	}
 
+	listenAddr := viper.GetString("HttpListen")
+	if listenAddr == "" {
+		log.Fatal("No listen address provided!")
+	}
+
 	authorizedUsersList := viper.GetStringSlice("AuthorizedUsers")
 	if len(authorizedUsersList) == 0 {
 		log.Fatal("A list of AuthorizedUsers must be given!")
@@ -122,5 +129,6 @@ func main() {
 	photoBot.Telegram.API.Debug = viper.GetBool("TelegramDebug")
 
 	initLogFile()
-	photoBot.Process()
+	go photoBot.Process()
+	photoBot.ServeWebInterface(viper.GetString("HttpListen"))
 }

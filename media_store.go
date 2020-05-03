@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +19,21 @@ import (
 
 type MediaStore struct {
 	StoreLocation string
+}
+
+type Album struct {
+	ID    string    `yaml:"-"` // Not part of the YAML struct
+	Title string    `yaml:"title"`
+	Date  time.Time `yaml:"date"`
+	Media []Media   `yaml:"-"` // Not part of the YAML struct
+}
+
+type Media struct {
+	Type    string    `yaml:"type"`
+	ID      string    `yaml:"id"`
+	Files   []string  `yaml:"-"` // Not part of the YAML struct
+	Caption string    `yaml:"caption"`
+	Date    time.Time `yaml:"date"`
 }
 
 func InitMediaStore(storeLocation string) (*MediaStore, error) {
@@ -46,11 +62,11 @@ func (store *MediaStore) CommitVideo(id string, timestamp time.Time, caption str
 }
 
 func (store *MediaStore) commitMedia(id string, timestamp time.Time, caption string, mediaType string) error {
-	entry := [1]map[string]string{{
-		"type":    mediaType,
-		"date":    timestamp.Format("2006-01-02T15:04:05-0700"),
-		"caption": caption,
-		"id":      id,
+	entry := [1]Media{{
+		Type:    mediaType,
+		Date:    timestamp,
+		Caption: caption,
+		ID:      id,
 	}}
 
 	yamlData, err := yaml.Marshal(entry)
@@ -73,24 +89,117 @@ func appendToFile(filename string, data []byte) error {
 	return nil
 }
 
-func (store *MediaStore) GetCurrentAlbum() (string, error) {
-	yamlData, err := ioutil.ReadFile(filepath.Join(store.StoreLocation, ".current", "meta.yaml"))
+func (store *MediaStore) ListAlbums() ([]Album, error) {
+	files, err := ioutil.ReadDir(store.StoreLocation)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// the album has not yet a name, it is not an error
-			return "", nil
-		} else {
-			return "", err
+		return nil, err
+	}
+
+	albums := make([]Album, len(files))
+	for i, file := range files {
+		album, err := store.GetAlbum(file.Name(), true)
+		if err != nil {
+			log.Printf("ListAlbum: Cannot extract album info for '%s'", file.Name())
+			continue
+		}
+		albums[i] = *album
+	}
+
+	return albums, nil
+}
+
+func (store *MediaStore) OpenFile(albumName string, filename string) (*os.File, error) {
+	if albumName == "" {
+		albumName = ".current"
+	}
+
+	return os.OpenFile(filepath.Join(store.StoreLocation, albumName, filename), os.O_RDONLY, 0600)
+}
+
+func (store *MediaStore) GetAlbum(name string, metadataOnly bool) (*Album, error) {
+	var album Album
+	var filename string
+	if name == "" || name == ".current" {
+		filename = ".current"
+	} else {
+		filename = filepath.Base(name)
+		album.ID = filename
+	}
+
+	if !fileExists(filepath.Join(store.StoreLocation, filename)) {
+		return nil, fmt.Errorf("Unknown album '%s'", name)
+	}
+
+	err := store.fillAlbumMetadata(filename, &album)
+	if err != nil {
+		return nil, err
+	}
+
+	if metadataOnly {
+		return &album, nil
+	}
+
+	err = store.fillAlbumContent(filename, &album)
+	if err != nil {
+		return nil, err
+	}
+
+	return &album, nil
+}
+
+func (store *MediaStore) fillAlbumContent(filename string, album *Album) error {
+	yamlData, err := ioutil.ReadFile(filepath.Join(store.StoreLocation, filename, "chat.yaml"))
+	// if chat.yaml is not there, it may be because there is no media yet
+	// It is not an error.
+	if err != nil && !os.IsNotExist(err) {
+		return nil
+	}
+
+	err = yaml.UnmarshalStrict(yamlData, &album.Media)
+	if err != nil {
+		return err
+	}
+
+	// Find media files matching each id
+	for i := range album.Media {
+		paths, _ := filepath.Glob(filepath.Join(store.StoreLocation, filename, album.Media[i].ID+".*"))
+		album.Media[i].Files = make([]string, len(paths))
+		for j, path := range paths {
+			album.Media[i].Files[j] = filepath.Base(path)
 		}
 	}
 
-	var metadata map[string]string = make(map[string]string)
-	err = yaml.UnmarshalStrict(yamlData, &metadata)
-	if err != nil {
-		return "", err
+	return nil
+}
+
+func (store *MediaStore) fillAlbumMetadata(filename string, album *Album) error {
+	yamlData, err := ioutil.ReadFile(filepath.Join(store.StoreLocation, filename, "meta.yaml"))
+	// if meta.yaml is not there, it could be because the album has not yet
+	// been initialized. It is not an error.
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
-	return metadata["title"], nil
+	return yaml.UnmarshalStrict(yamlData, album)
+}
+
+func (store *MediaStore) GetMedia(albumName string, mediaId string) (*Media, error) {
+	album, err := store.GetAlbum(albumName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, media := range album.Media {
+		if media.ID == mediaId {
+			return &media, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (store *MediaStore) GetCurrentAlbum() (*Album, error) {
+	return store.GetAlbum("", true)
 }
 
 func (store *MediaStore) CloseAlbum() error {
@@ -99,19 +208,19 @@ func (store *MediaStore) CloseAlbum() error {
 		return err
 	}
 
-	var metadata map[string]string = make(map[string]string)
+	var metadata Album
 	err = yaml.UnmarshalStrict(yamlData, &metadata)
 	if err != nil {
 		return err
 	}
 
-	date, err := time.Parse("2006-01-02T15:04:05-0700", metadata["date"])
+	folderName := metadata.Date.Format("2006-01-02") + "-" + sanitizeAlbumName(metadata.Title)
+	err = os.Rename(filepath.Join(store.StoreLocation, ".current"), filepath.Join(store.StoreLocation, folderName))
 	if err != nil {
 		return err
 	}
 
-	folderName := date.Format("2006-01-02") + "-" + sanitizeAlbumName(metadata["title"])
-	err = os.Rename(filepath.Join(store.StoreLocation, ".current"), filepath.Join(store.StoreLocation, folderName))
+	err = os.MkdirAll(filepath.Join(store.StoreLocation, ".current"), os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -125,8 +234,8 @@ func fileExists(filename string) bool {
 }
 
 func (store *MediaStore) NewAlbum(title string) error {
-	if fileExists(filepath.Join(store.StoreLocation, ".current/")) {
-		if fileExists(filepath.Join(store.StoreLocation, "/.current/meta.yaml")) {
+	if fileExists(filepath.Join(store.StoreLocation, ".current")) {
+		if fileExists(filepath.Join(store.StoreLocation, ".current", "meta.yaml")) {
 			err := store.CloseAlbum()
 			if err != nil {
 				return err
@@ -134,14 +243,14 @@ func (store *MediaStore) NewAlbum(title string) error {
 		}
 	}
 
-	err := os.MkdirAll(filepath.Join(store.StoreLocation, ".current/"), os.ModePerm)
+	err := os.MkdirAll(filepath.Join(store.StoreLocation, ".current"), os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	metadata := map[string]string{
-		"title": title,
-		"date":  time.Now().Format("2006-01-02T15:04:05-0700"),
+	metadata := Album{
+		Title: title,
+		Date:  time.Now(),
 	}
 
 	yamlData, err := yaml.Marshal(metadata)

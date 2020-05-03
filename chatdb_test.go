@@ -54,5 +54,5 @@ func TestUpdateWith(t *testing.T) {
 	if err != nil {
 		t.Errorf("ioutil.ReadFile: %s", err)
 	}
-	assert.Equal(t, "john: 123456\n", string(content), "chatdb content")
+	assert.Equal(t, string(content), "john: 123456\n", "chatdb content")
 }

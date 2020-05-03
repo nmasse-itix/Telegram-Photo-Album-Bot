@@ -12,8 +12,9 @@ import (
 )
 
 type PhotoBot struct {
-	Telegram   TelegramBackend
-	MediaStore *MediaStore
+	Telegram     TelegramBackend
+	MediaStore   *MediaStore
+	WebInterface WebInterface
 }
 
 type TelegramBackend struct {
@@ -246,15 +247,15 @@ func (bot *PhotoBot) handleHelpCommand(message *tgbotapi.Message) {
 }
 
 func (bot *PhotoBot) handleInfoCommand(message *tgbotapi.Message) {
-	albumName, err := bot.MediaStore.GetCurrentAlbum()
+	album, err := bot.MediaStore.GetCurrentAlbum()
 	if err != nil {
 		log.Printf("[%s] cannot get current album: %s", message.From.UserName, err)
 		bot.Telegram.replyToCommandWithMessage(message, viper.GetString("MsgServerError"))
 		return
 	}
 
-	if albumName != "" {
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(viper.GetString("MsgInfo"), albumName))
+	if album.Title != "" {
+		bot.Telegram.replyWithMessage(message, fmt.Sprintf(viper.GetString("MsgInfo"), album.Title))
 	} else {
 		bot.Telegram.replyWithMessage(message, viper.GetString("MsgInfoNoAlbum"))
 	}
