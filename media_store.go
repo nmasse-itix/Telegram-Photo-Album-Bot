@@ -122,12 +122,23 @@ func (store *MediaStore) ListAlbums() (AlbumList, error) {
 	return albums, nil
 }
 
-func (store *MediaStore) OpenFile(albumName string, filename string) (*os.File, error) {
+func (store *MediaStore) OpenFile(albumName string, filename string) (*os.File, time.Time, error) {
 	if albumName == "" {
 		albumName = ".current"
 	}
 
-	return os.OpenFile(filepath.Join(store.StoreLocation, albumName, filename), os.O_RDONLY, 0600)
+	path := filepath.Join(store.StoreLocation, albumName, filename)
+	stat, err := os.Stat(path)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	fd, err := os.OpenFile(path, os.O_RDONLY, 0600)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	return fd, stat.ModTime(), nil
 }
 
 func (store *MediaStore) GetAlbum(name string, metadataOnly bool) (*Album, error) {

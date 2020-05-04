@@ -96,7 +96,13 @@ service photo-bot enable
 service photo-bot start
 ```
 
+## Useful notes
 
+Video autoplay is tricky:
+
+- On Firefox, you have to interact with the page first (click somewhere in the page)
+- On Safari, you have to [explicitly enable auto-play for this website](https://support.apple.com/fr-fr/guide/safari/ibrw29c6ecf8/mac)
+- On Chrome, it seems to be enabled out-of-the-box
 
 ## Documentation
 

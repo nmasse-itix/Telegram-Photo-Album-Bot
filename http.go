@@ -2,7 +2,6 @@ package main
 
 import (
 	"html/template"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -200,14 +199,14 @@ func (bot *PhotoBot) HandleGetMedia(w http.ResponseWriter, r *http.Request, albu
 		albumName = ""
 	}
 
-	fd, err := bot.MediaStore.OpenFile(albumName, mediaFilename)
+	fd, modtime, err := bot.MediaStore.OpenFile(albumName, mediaFilename)
 	if err != nil {
 		log.Printf("MediaStore.OpenFile: %s", err)
 		bot.HandleError(w, r)
 		return
 	}
 	defer fd.Close()
-	io.Copy(w, fd) // Best effort
+	http.ServeContent(w, r, mediaFilename, modtime, fd)
 }
 
 func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
