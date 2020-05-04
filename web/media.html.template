@@ -3,14 +3,13 @@
 <head>
     <title>{{ .Caption }}</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=contain">
     <link rel="stylesheet" href="/css/main.css">
 </head>
 <body class="media">
 {{ if ne .Caption "" }}
 <h1>{{ .Caption }}</h1>
 {{ end }}
-<div>
 {{ if eq .Type "photo" }}
 <img src="../../raw/{{ .Files|photo }}" />
 {{ else if eq .Type "video" }}
@@ -18,6 +17,6 @@
 <source src="../../raw/{{ .Files|video }}" type="video/mp4">
 </video>
 {{ end }}
-</div>
+<div><!-- Empty Flex element so that "justify-content: space-between" work as expected --></div>
 </body>
 </html>

@@ -6,6 +6,11 @@ h1 {
     font-family: sans-serif;
 }
 
+html {
+    height: 100%;
+    width: 100%;
+}
+
 /* Album */
 
 body.album {
@@ -38,30 +43,29 @@ body.album {
     flex-grow: 10;
 }
 
-/* Album */
+/* Media */
 
-.media div {
+body.media {
     height: 100%;
     width: 100%;
+    margin: 0;
     display: flex;
-    justify-content: center
-}
-
-html, body.media {
-    height: 100%;
-    margin: 0
+    flex-direction: column-reverse;
+    justify-content: space-between;
 }
 
 body.media h1 {
-    position: fixed;
-    bottom: 0px;
-    left: 10%;
-    right: 10%;
     background-color: #888888AA;
     padding: 1vh;
-    
+    margin-left: 3vh;
+    margin-right: 3vh;
 }
 
-.media div img, .media div video {
+.media img, .media video {
     object-fit: contain;
+    max-height: 80%;
+    max-width: 100%;
+    margin-top: 3vh;
+    margin-left: 3vh;
+    margin-right: 3vh;
 }

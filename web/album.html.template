@@ -3,7 +3,7 @@
 <head>
     <title>{{ .Title }}</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=contain">
     <link rel="stylesheet" href="/css/main.css">
     <script type="text/javascript" src="/js/main.js"></script>
 </head>
@@ -17,8 +17,8 @@
 </li>
 {{ else if eq .Type "video" }}
 <li>
-<a href="media/{{ .ID }}/"> 
-<video loop muted poster="raw/{{ .Files|photo }}">
+<a href="media/{{ .ID }}/">
+<video loop muted poster="raw/{{ .Files|photo }}" preload="none">
 <source src="raw/{{ .Files|video }}" type="video/mp4">
 </video>
 </a>
