@@ -26,11 +26,16 @@ body.album {
 }
 
 .album li {
-    height: 20vh;
+    /*
+     * Line height is expressed as a factor of the viewport width since
+     * we want to fit roughly the same amount of photos per line,
+     * independently of the user's device
+     */
+    height: 13vw;
     flex-grow: 0.5;
     list-style-type: none;
+    padding: 1px;
 }
-
 
 .album li img, .album li video {
     max-height: 100%;
