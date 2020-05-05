@@ -5,10 +5,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/spf13/viper"
 )
 
 type PhotoBot struct {
@@ -18,11 +18,37 @@ type PhotoBot struct {
 }
 
 type TelegramBackend struct {
+	TokenGenerator   *TokenGenerator
+	WebPublicURL     string
 	ChatDB           *ChatDB
 	AuthorizedUsers  map[string]bool
 	RetryDelay       time.Duration
 	NewUpdateTimeout int
 	API              *tgbotapi.BotAPI
+	Commands         TelegramCommands
+	Messages         TelegramMessages
+}
+
+type TelegramCommands struct {
+	Help     string
+	NewAlbum string
+	Info     string
+	Share    string
+}
+
+type TelegramMessages struct {
+	Forbidden        string
+	Help             string
+	MissingAlbumName string
+	ServerError      string
+	AlbumCreated     string
+	DoNotUnderstand  string
+	Info             string
+	InfoNoAlbum      string
+	NoUsername       string
+	ThankYouMedia    string
+	SharedAlbum      string
+	SharedGlobal     string
 }
 
 func InitBot(targetDir string) *PhotoBot {
@@ -69,12 +95,12 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 	username := update.Message.From.UserName
 
 	if username == "" {
-		bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgNoUsername"))
+		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.NoUsername)
 		return
 	}
 	if !bot.Telegram.AuthorizedUsers[username] {
 		log.Printf("[%s] unauthorized user", username)
-		bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgForbidden"))
+		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.Forbidden)
 		return
 	}
 
@@ -87,41 +113,41 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 		if update.Message.IsCommand() {
 			log.Printf("[%s] command: %s", username, text)
 			switch update.Message.Command() {
-			case "start", "aide", "help":
+			case "start", bot.Telegram.Commands.Help:
 				bot.handleHelpCommand(update.Message)
-			case "nouvelAlbum":
+			case bot.Telegram.Commands.Share:
+				bot.handleShareCommand(update.Message)
+			case bot.Telegram.Commands.NewAlbum:
 				bot.handleNewAlbumCommand(update.Message)
-			case "info":
+			case bot.Telegram.Commands.Info:
 				bot.handleInfoCommand(update.Message)
-			case "pourLouise":
-				bot.Telegram.replyWithForcedReply(update.Message, viper.GetString("MsgSendMeSomething"))
 			default:
-				bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgDoNotUnderstand"))
+				bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
 			}
 		} else {
-			bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgDoNotUnderstand"))
+			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
 		}
 	} else if update.Message.Photo != nil {
 		err := bot.handlePhoto(update.Message)
 		if err != nil {
 			log.Printf("[%s] cannot add photo to current album: %s", username, err)
-			bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgServerError"))
+			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.ServerError)
 			return
 		}
 		bot.dispatchMessage(update.Message)
-		bot.Telegram.replyWithMessage(update.Message, viper.GetString("MsgThankYouMedia"))
+		bot.Telegram.replyWithMessage(update.Message, bot.Telegram.Messages.ThankYouMedia)
 	} else if update.Message.Video != nil {
 		err := bot.handleVideo(update.Message)
 		if err != nil {
 			log.Printf("[%s] cannot add video to current album: %s", username, err)
-			bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgServerError"))
+			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.ServerError)
 			return
 		}
 		bot.dispatchMessage(update.Message)
-		bot.Telegram.replyWithMessage(update.Message, viper.GetString("MsgThankYouMedia"))
+		bot.Telegram.replyWithMessage(update.Message, bot.Telegram.Messages.ThankYouMedia)
 	} else {
 		log.Printf("[%s] cannot handle this type of message", username)
-		bot.Telegram.replyToCommandWithMessage(update.Message, viper.GetString("MsgDoNotUnderstand"))
+		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
 	}
 }
 
@@ -243,27 +269,51 @@ func (bot *PhotoBot) handleVideo(message *tgbotapi.Message) error {
 }
 
 func (bot *PhotoBot) handleHelpCommand(message *tgbotapi.Message) {
-	bot.Telegram.replyWithMessage(message, viper.GetString("MsgHelp"))
+	bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.Help)
+}
+
+func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
+	var tokenData TokenData = TokenData{
+		Timestamp: time.Now(),
+		Username:  message.From.UserName,
+	}
+
+	if len(message.Text) < len(bot.Telegram.Commands.Share)+3 {
+		// Global share
+		tokenData.Entitlement = ""
+		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
+		url := fmt.Sprintf("%s/s/%s/%s/album/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
+		bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.SharedGlobal)
+		bot.Telegram.replyWithMessage(message, url)
+	} else {
+		// Album share
+		albumName := message.CommandArguments()
+		tokenData.Entitlement = albumName
+		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
+		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(albumName))
+		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, albumName))
+		bot.Telegram.replyWithMessage(message, url)
+	}
 }
 
 func (bot *PhotoBot) handleInfoCommand(message *tgbotapi.Message) {
 	album, err := bot.MediaStore.GetCurrentAlbum()
 	if err != nil {
 		log.Printf("[%s] cannot get current album: %s", message.From.UserName, err)
-		bot.Telegram.replyToCommandWithMessage(message, viper.GetString("MsgServerError"))
+		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
 		return
 	}
 
 	if album.Title != "" {
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(viper.GetString("MsgInfo"), album.Title))
+		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.Info, album.Title))
 	} else {
-		bot.Telegram.replyWithMessage(message, viper.GetString("MsgInfoNoAlbum"))
+		bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.InfoNoAlbum)
 	}
 }
 
 func (bot *PhotoBot) handleNewAlbumCommand(message *tgbotapi.Message) {
-	if len(message.Text) < 14 {
-		bot.Telegram.replyToCommandWithMessage(message, viper.GetString("MsgMissingAlbumName"))
+	if len(message.Text) < len(bot.Telegram.Commands.NewAlbum)+3 {
+		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.MissingAlbumName)
 		return
 	}
 	albumName := message.CommandArguments()
@@ -271,11 +321,11 @@ func (bot *PhotoBot) handleNewAlbumCommand(message *tgbotapi.Message) {
 	err := bot.MediaStore.NewAlbum(albumName)
 	if err != nil {
 		log.Printf("[%s] cannot create album '%s': %s", message.From.UserName, albumName, err)
-		bot.Telegram.replyToCommandWithMessage(message, viper.GetString("MsgServerError"))
+		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
 		return
 	}
 
-	bot.Telegram.replyWithMessage(message, viper.GetString("MsgAlbumCreated"))
+	bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.AlbumCreated)
 }
 
 func (telegram *TelegramBackend) replyToCommandWithMessage(message *tgbotapi.Message, text string) error {
@@ -287,16 +337,6 @@ func (telegram *TelegramBackend) replyToCommandWithMessage(message *tgbotapi.Mes
 
 func (telegram *TelegramBackend) replyWithMessage(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	_, err := telegram.API.Send(msg)
-	return err
-}
-
-func (telegram *TelegramBackend) replyWithForcedReply(message *tgbotapi.Message, text string) error {
-	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ReplyMarkup = tgbotapi.ForceReply{
-		ForceReply: true,
-		Selective:  true,
-	}
 	_, err := telegram.API.Send(msg)
 	return err
 }
