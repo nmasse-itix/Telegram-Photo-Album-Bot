@@ -40,7 +40,7 @@ func (g *TokenGenerator) NewToken(data TokenData) string {
 
 	//fmt.Println(hex.EncodeToString(hash))
 
-	return base64.StdEncoding.EncodeToString(hash)
+	return base64.RawURLEncoding.EncodeToString(hash)
 }
 
 func getBufferFor(data TokenData) []byte {
@@ -69,7 +69,7 @@ func getBufferFor(data TokenData) []byte {
 }
 
 func (g *TokenGenerator) ValidateToken(data TokenData, token string, validity int) (bool, error) {
-	rawToken, err := base64.StdEncoding.DecodeString(token)
+	rawToken, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return false, err
 	}

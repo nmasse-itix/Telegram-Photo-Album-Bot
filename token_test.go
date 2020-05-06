@@ -25,7 +25,7 @@ func TestTokenGenerator(t *testing.T) {
 	token := g.NewToken(TokenData{now, "nmasse", "read"})
 
 	// echo "000000: 021d 0000 6e6d 6173 7365 0072 6561 64" |xxd -r | openssl dgst -sha256 -mac HMAC -macopt "hexkey:$KEY" -binary |openssl base64
-	expectedToken := "McChidYyEfEPkotTq08EW+eYHjd2QX+wlUzgGjOhWlY="
+	expectedToken := "McChidYyEfEPkotTq08EW-eYHjd2QX-wlUzgGjOhWlY"
 	assert.Equal(t, token, expectedToken, "expected a valid token")
 
 	sixDaysLater := time.Unix(1589221922, 0)

@@ -55,8 +55,8 @@ func initConfig() {
 	viper.SetDefault("WebInterface.Listen", "127.0.0.1:8080")
 	viper.SetDefault("WebInterface.Sessions.SecureCookie", true)
 	viper.SetDefault("WebInterface.Sessions.CookieMaxAge", 86400*7)
-	viper.SetDefault("Telegram.TokenGenerator.GlobalValidity", 1)
-	viper.SetDefault("Telegram.TokenGenerator.PerAlbumValidity", 7)
+	viper.SetDefault("Telegram.TokenGenerator.GlobalValidity", 7)
+	viper.SetDefault("Telegram.TokenGenerator.PerAlbumValidity", 15)
 
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
