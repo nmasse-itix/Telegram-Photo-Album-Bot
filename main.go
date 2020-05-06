@@ -41,8 +41,8 @@ func initConfig() {
 	viper.SetDefault("Telegram.Messages.InfoNoAlbum", "There is no album started, yet.")
 	viper.SetDefault("Telegram.Messages.NoUsername", "You need to set your Telegram username first!")
 	viper.SetDefault("Telegram.Messages.ThankYouMedia", "Got it, thanks!")
-	viper.SetDefault("Telegram.Messages.SharedAlbum", "Album %s shared:")
-	viper.SetDefault("Telegram.Messages.SharedGlobal", "Link to all albums:")
+	viper.SetDefault("Telegram.Messages.SharedAlbum", "The album %s can be reached with the following link. Link is valid for %d days.")
+	viper.SetDefault("Telegram.Messages.SharedGlobal", "All albums can be reached with the following link. Link is valid for %d days.")
 
 	// Telegram Commands
 	viper.SetDefault("Telegram.Commands.Help", "help")
@@ -229,6 +229,8 @@ func main() {
 		panic(err)
 	}
 	photoBot.Telegram.TokenGenerator = tokenGenerator
+	photoBot.Telegram.GlobalTokenValidity = viper.GetInt("Telegram.TokenGenerator.GlobalValidity")
+	photoBot.Telegram.PerAlbumTokenValidity = viper.GetInt("Telegram.TokenGenerator.PerAlbumValidity")
 
 	// Setup the web interface
 	var oidc OpenIdSettings = OpenIdSettings{

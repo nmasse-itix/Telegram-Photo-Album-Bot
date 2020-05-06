@@ -18,7 +18,10 @@ type PhotoBot struct {
 }
 
 type TelegramBackend struct {
-	TokenGenerator   *TokenGenerator
+	TokenGenerator        *TokenGenerator
+	GlobalTokenValidity   int
+	PerAlbumTokenValidity int
+
 	WebPublicURL     string
 	ChatDB           *ChatDB
 	AuthorizedUsers  map[string]bool
@@ -283,7 +286,7 @@ func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
 		tokenData.Entitlement = ""
 		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
 		url := fmt.Sprintf("%s/s/%s/%s/album/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
-		bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.SharedGlobal)
+		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedGlobal, bot.Telegram.GlobalTokenValidity))
 		bot.Telegram.replyWithMessage(message, url)
 	} else {
 		// Album share
@@ -291,7 +294,7 @@ func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
 		tokenData.Entitlement = albumName
 		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
 		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(albumName))
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, albumName))
+		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, albumName, bot.Telegram.PerAlbumTokenValidity))
 		bot.Telegram.replyWithMessage(message, url)
 	}
 }
