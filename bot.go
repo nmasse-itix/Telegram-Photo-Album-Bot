@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -37,6 +39,7 @@ type TelegramCommands struct {
 	NewAlbum string
 	Info     string
 	Share    string
+	Browse   string
 }
 
 type TelegramMessages struct {
@@ -94,6 +97,10 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	if update.Message.Chat == nil || update.Message.Chat.Type != "private" {
+		return
+	}
+
 	text := update.Message.Text
 	username := update.Message.From.UserName
 
@@ -112,6 +119,21 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 		log.Printf("[%s] cannot update chat db: %s", username, err)
 	}
 
+	if update.Message.ReplyToMessage != nil {
+		// Only deal with forced replies (reply to bot's messages)
+		if update.Message.ReplyToMessage.From == nil || update.Message.ReplyToMessage.From.UserName != bot.Telegram.API.Self.UserName {
+			return
+		}
+
+		if update.Message.ReplyToMessage.Text != "" {
+			if update.Message.ReplyToMessage.Text == bot.Telegram.Messages.MissingAlbumName {
+				log.Printf("[%s] reply to previous command /%s: %s", username, bot.Telegram.Commands.NewAlbum, text)
+				bot.handleNewAlbumCommandReply(update.Message)
+				return
+			}
+		}
+	}
+
 	if text != "" {
 		if update.Message.IsCommand() {
 			log.Printf("[%s] command: %s", username, text)
@@ -120,6 +142,8 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 				bot.handleHelpCommand(update.Message)
 			case bot.Telegram.Commands.Share:
 				bot.handleShareCommand(update.Message)
+			case bot.Telegram.Commands.Browse:
+				bot.handleBrowseCommand(update.Message)
 			case bot.Telegram.Commands.NewAlbum:
 				bot.handleNewAlbumCommand(update.Message)
 			case bot.Telegram.Commands.Info:
@@ -276,27 +300,48 @@ func (bot *PhotoBot) handleHelpCommand(message *tgbotapi.Message) {
 }
 
 func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
+	albumList, err := bot.MediaStore.ListAlbums()
+	if err != nil {
+		log.Printf("[%s] cannot get album list: %s", message.From.UserName, err)
+		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
+		return
+	}
+
+	var text strings.Builder
+	text.WriteString(fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, bot.Telegram.PerAlbumTokenValidity))
+	text.WriteString("\n")
+	sort.Sort(sort.Reverse(albumList))
+	var tokenData TokenData = TokenData{
+		Timestamp: time.Now(),
+		Username:  message.From.UserName,
+	}
+	for _, album := range albumList {
+		title := album.Title // TODO escape me
+		id := album.ID
+		if id == "" {
+			id = "latest"
+			title = title + " 🔥"
+		}
+		tokenData.Entitlement = id
+		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
+		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(id))
+		text.WriteString(fmt.Sprintf("- [%s %s](%s)\n", album.Date.Format("2006-01"), title, url))
+	}
+
+	bot.Telegram.replyWithMarkdownMessage(message, text.String())
+}
+
+func (bot *PhotoBot) handleBrowseCommand(message *tgbotapi.Message) {
 	var tokenData TokenData = TokenData{
 		Timestamp: time.Now(),
 		Username:  message.From.UserName,
 	}
 
-	if len(message.Text) < len(bot.Telegram.Commands.Share)+3 {
-		// Global share
-		tokenData.Entitlement = ""
-		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
-		url := fmt.Sprintf("%s/s/%s/%s/album/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedGlobal, bot.Telegram.GlobalTokenValidity))
-		bot.Telegram.replyWithMessage(message, url)
-	} else {
-		// Album share
-		albumName := message.CommandArguments()
-		tokenData.Entitlement = albumName
-		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
-		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(albumName))
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, albumName, bot.Telegram.PerAlbumTokenValidity))
-		bot.Telegram.replyWithMessage(message, url)
-	}
+	// Global share
+	token := bot.Telegram.TokenGenerator.NewToken(tokenData)
+	url := fmt.Sprintf("%s/s/%s/%s/album/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
+	bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedGlobal, bot.Telegram.GlobalTokenValidity))
+	bot.Telegram.replyWithMessage(message, url)
 }
 
 func (bot *PhotoBot) handleInfoCommand(message *tgbotapi.Message) {
@@ -315,11 +360,11 @@ func (bot *PhotoBot) handleInfoCommand(message *tgbotapi.Message) {
 }
 
 func (bot *PhotoBot) handleNewAlbumCommand(message *tgbotapi.Message) {
-	if len(message.Text) < len(bot.Telegram.Commands.NewAlbum)+3 {
-		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.MissingAlbumName)
-		return
-	}
-	albumName := message.CommandArguments()
+	bot.Telegram.replyWithForcedReply(message, bot.Telegram.Messages.MissingAlbumName)
+}
+
+func (bot *PhotoBot) handleNewAlbumCommandReply(message *tgbotapi.Message) {
+	albumName := message.Text
 
 	err := bot.MediaStore.NewAlbum(albumName)
 	if err != nil {
@@ -340,6 +385,23 @@ func (telegram *TelegramBackend) replyToCommandWithMessage(message *tgbotapi.Mes
 
 func (telegram *TelegramBackend) replyWithMessage(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	_, err := telegram.API.Send(msg)
+	return err
+}
+
+func (telegram *TelegramBackend) replyWithMarkdownMessage(message *tgbotapi.Message, text string) error {
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	_, err := telegram.API.Send(msg)
+	return err
+}
+
+func (telegram *TelegramBackend) replyWithForcedReply(message *tgbotapi.Message, text string) error {
+	msg := tgbotapi.NewMessage(message.Chat.ID, text)
+	msg.ReplyMarkup = tgbotapi.ForceReply{
+		ForceReply: true,
+		Selective:  true,
+	}
 	_, err := telegram.API.Send(msg)
 	return err
 }

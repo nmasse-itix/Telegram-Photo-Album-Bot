@@ -26,14 +26,14 @@ func initConfig() {
 
 	You can send me your photos and videos.
 
-	To start an album, use "/newAlbum album name".
+	To start an album, use "/newAlbum".
 	To get the current album name, use "/info".
 	To share an album, use "/share album".
 	To share all albums, use "/share".
 	If you are lost, you can get this message again with "/help".
 
 	Have a nice day!`)
-	viper.SetDefault("Telegram.Messages.MissingAlbumName", "The album name is missing")
+	viper.SetDefault("Telegram.Messages.MissingAlbumName", "Which title should I give to the new album?")
 	viper.SetDefault("Telegram.Messages.ServerError", "Server Internal Error")
 	viper.SetDefault("Telegram.Messages.AlbumCreated", "Album created")
 	viper.SetDefault("Telegram.Messages.DoNotUnderstand", "Sorry, I did not understand your request.")
@@ -41,7 +41,7 @@ func initConfig() {
 	viper.SetDefault("Telegram.Messages.InfoNoAlbum", "There is no album started, yet.")
 	viper.SetDefault("Telegram.Messages.NoUsername", "You need to set your Telegram username first!")
 	viper.SetDefault("Telegram.Messages.ThankYouMedia", "Got it, thanks!")
-	viper.SetDefault("Telegram.Messages.SharedAlbum", "The album %s can be reached with the following link. Link is valid for %d days.")
+	viper.SetDefault("Telegram.Messages.SharedAlbum", "Here are the albums and their sharing links. Links are valid for %d days.")
 	viper.SetDefault("Telegram.Messages.SharedGlobal", "All albums can be reached with the following link. Link is valid for %d days.")
 
 	// Telegram Commands
@@ -49,6 +49,7 @@ func initConfig() {
 	viper.SetDefault("Telegram.Commands.Info", "info")
 	viper.SetDefault("Telegram.Commands.NewAlbum", "newAlbum")
 	viper.SetDefault("Telegram.Commands.Share", "share")
+	viper.SetDefault("Telegram.Commands.Browse", "browse")
 
 	// Web Interface
 	viper.SetDefault("WebInterface.SiteName", "My photo album")
@@ -152,6 +153,7 @@ func getCommandsFromConfig() TelegramCommands {
 		NewAlbum: viper.GetString("Telegram.Commands.NewAlbum"),
 		Info:     viper.GetString("Telegram.Commands.Info"),
 		Share:    viper.GetString("Telegram.Commands.Share"),
+		Browse:   viper.GetString("Telegram.Commands.Browse"),
 	}
 }
 
