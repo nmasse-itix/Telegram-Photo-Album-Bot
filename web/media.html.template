@@ -9,6 +9,8 @@
 <body class="media">
 {{ if ne .Caption "" }}
 <h1>{{ .Caption }}</h1>
+{{ else }}
+<div><!-- Empty Flex element so that "justify-content: space-between" work as expected --></div>
 {{ end }}
 {{ if eq .Type "photo" }}
 <img src="../../raw/{{ .Files|photo }}" />
