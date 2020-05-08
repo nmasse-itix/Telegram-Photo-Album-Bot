@@ -185,12 +185,29 @@ func (store *MediaStore) fillAlbumContent(filename string, album *Album) error {
 		return err
 	}
 
+	// List all files in the album directory, looking for filenames starting by a UUID
+	// and build an association between the UUID and the filenames starting with this UUID.
+	files, err := ioutil.ReadDir(filepath.Join(store.StoreLocation, filename))
+	if err != nil {
+		return err
+	}
+	filesById := make(map[string][]string)
+	for _, file := range files {
+		n := file.Name()
+		if len(n) < 36 {
+			// Definitively not a UUID...
+			continue
+		}
+
+		filesById[n[0:36]] = append(filesById[n[0:36]], n)
+	}
+
 	// Find media files matching each id
 	for i := range album.Media {
-		paths, _ := filepath.Glob(filepath.Join(store.StoreLocation, filename, album.Media[i].ID+".*"))
-		album.Media[i].Files = make([]string, len(paths))
-		for j, path := range paths {
-			album.Media[i].Files[j] = filepath.Base(path)
+		if files, ok := filesById[album.Media[i].ID]; ok {
+			album.Media[i].Files = files
+		} else {
+			album.Media[i].Files = make([]string, 0)
 		}
 	}
 
