@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -44,6 +45,20 @@ type OpenIdSettings struct {
 
 func init() {
 	gob.Register(&WebUser{})
+}
+
+func GetOAuthCallbackURL(publicUrl string) string {
+	u, err := url.Parse(publicUrl)
+	if err != nil {
+		// If the URL cannot be parsed, use it as-is
+		return publicUrl
+	}
+
+	u.Path = "/oauth/callback"
+	u.Fragment = ""
+	u.RawQuery = ""
+
+	return u.String()
 }
 
 func NewSecurityFrontend(openidSettings OpenIdSettings, sessionSettings SessionSettings, tokenGenerator *TokenGenerator) (*SecurityFrontend, error) {
@@ -289,6 +304,7 @@ func (securityFrontend *SecurityFrontend) handleTelegramTokenAuthentication(w ht
 		Timestamp:   time.Now(),
 		Entitlement: album,
 	}
+	// try to validate the token with an album entitlement
 	ok, err := securityFrontend.TokenGenerator.ValidateToken(data, token, securityFrontend.PerAlbumTokenValidity)
 	if err != nil {
 		http.Error(w, "Invalid Token", http.StatusBadRequest)
@@ -296,6 +312,7 @@ func (securityFrontend *SecurityFrontend) handleTelegramTokenAuthentication(w ht
 	}
 
 	if !ok {
+		// if it fails, it may be a global token
 		data.Entitlement = ""
 		ok, err := securityFrontend.TokenGenerator.ValidateToken(data, token, securityFrontend.GlobalTokenValidity)
 		if !ok || err != nil {

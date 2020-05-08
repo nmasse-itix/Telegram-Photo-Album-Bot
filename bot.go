@@ -13,13 +13,8 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type PhotoBot struct {
-	Telegram     TelegramBackend
-	MediaStore   *MediaStore
-	WebInterface WebInterface
-}
-
-type TelegramBackend struct {
+type TelegramBot struct {
+	MediaStore            *MediaStore
 	TokenGenerator        *TokenGenerator
 	GlobalTokenValidity   int
 	PerAlbumTokenValidity int
@@ -57,42 +52,40 @@ type TelegramMessages struct {
 	SharedGlobal     string
 }
 
-func InitBot(targetDir string) *PhotoBot {
-	return &PhotoBot{
-		Telegram: TelegramBackend{
-			AuthorizedUsers: make(map[string]bool),
-			RetryDelay:      time.Duration(30) * time.Second,
-		},
-	}
+func NewTelegramBot() *TelegramBot {
+	bot := TelegramBot{}
+	bot.AuthorizedUsers = make(map[string]bool)
+	return &bot
 }
 
-func (bot *PhotoBot) StartBot(token string) {
+func (bot *TelegramBot) StartBot(token string, debug bool) {
 	var telegramBot *tgbotapi.BotAPI
 	var err error
 
 	for tryAgain := true; tryAgain; tryAgain = (err != nil) {
 		telegramBot, err = tgbotapi.NewBotAPI(token)
 		if err != nil {
-			log.Printf("Cannot start the Telegram Bot because of '%s'. Retrying in %d seconds...", err, bot.Telegram.RetryDelay/time.Second)
-			time.Sleep(bot.Telegram.RetryDelay)
+			log.Printf("Cannot start the Telegram Bot because of '%s'. Retrying in %d seconds...", err, bot.RetryDelay/time.Second)
+			time.Sleep(bot.RetryDelay)
 		}
 	}
 
 	log.Printf("Authorized on account %s", telegramBot.Self.UserName)
 
-	bot.Telegram.API = telegramBot
+	bot.API = telegramBot
+	bot.API.Debug = debug
 }
 
-func (bot *PhotoBot) Process() {
+func (bot *TelegramBot) Process() {
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = bot.Telegram.NewUpdateTimeout
-	updates, _ := bot.Telegram.API.GetUpdatesChan(u)
+	u.Timeout = bot.NewUpdateTimeout
+	updates, _ := bot.API.GetUpdatesChan(u)
 	for update := range updates {
 		bot.ProcessUpdate(update)
 	}
 }
 
-func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
+func (bot *TelegramBot) ProcessUpdate(update tgbotapi.Update) {
 	if update.Message == nil || update.Message.From == nil {
 		return
 	}
@@ -105,29 +98,29 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 	username := update.Message.From.UserName
 
 	if username == "" {
-		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.NoUsername)
+		bot.replyToCommandWithMessage(update.Message, bot.Messages.NoUsername)
 		return
 	}
-	if !bot.Telegram.AuthorizedUsers[username] {
+	if !bot.AuthorizedUsers[username] {
 		log.Printf("[%s] unauthorized user", username)
-		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.Forbidden)
+		bot.replyToCommandWithMessage(update.Message, bot.Messages.Forbidden)
 		return
 	}
 
-	err := bot.Telegram.ChatDB.UpdateWith(username, update.Message.Chat.ID)
+	err := bot.ChatDB.UpdateWith(username, update.Message.Chat.ID)
 	if err != nil {
 		log.Printf("[%s] cannot update chat db: %s", username, err)
 	}
 
 	if update.Message.ReplyToMessage != nil {
 		// Only deal with forced replies (reply to bot's messages)
-		if update.Message.ReplyToMessage.From == nil || update.Message.ReplyToMessage.From.UserName != bot.Telegram.API.Self.UserName {
+		if update.Message.ReplyToMessage.From == nil || update.Message.ReplyToMessage.From.UserName != bot.API.Self.UserName {
 			return
 		}
 
 		if update.Message.ReplyToMessage.Text != "" {
-			if update.Message.ReplyToMessage.Text == bot.Telegram.Messages.MissingAlbumName {
-				log.Printf("[%s] reply to previous command /%s: %s", username, bot.Telegram.Commands.NewAlbum, text)
+			if update.Message.ReplyToMessage.Text == bot.Messages.MissingAlbumName {
+				log.Printf("[%s] reply to previous command /%s: %s", username, bot.Commands.NewAlbum, text)
 				bot.handleNewAlbumCommandReply(update.Message)
 				return
 			}
@@ -138,66 +131,66 @@ func (bot *PhotoBot) ProcessUpdate(update tgbotapi.Update) {
 		if update.Message.IsCommand() {
 			log.Printf("[%s] command: %s", username, text)
 			switch update.Message.Command() {
-			case "start", bot.Telegram.Commands.Help:
+			case "start", bot.Commands.Help:
 				bot.handleHelpCommand(update.Message)
-			case bot.Telegram.Commands.Share:
+			case bot.Commands.Share:
 				bot.handleShareCommand(update.Message)
-			case bot.Telegram.Commands.Browse:
+			case bot.Commands.Browse:
 				bot.handleBrowseCommand(update.Message)
-			case bot.Telegram.Commands.NewAlbum:
+			case bot.Commands.NewAlbum:
 				bot.handleNewAlbumCommand(update.Message)
-			case bot.Telegram.Commands.Info:
+			case bot.Commands.Info:
 				bot.handleInfoCommand(update.Message)
 			default:
-				bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
+				bot.replyToCommandWithMessage(update.Message, bot.Messages.DoNotUnderstand)
 			}
 		} else {
-			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
+			bot.replyToCommandWithMessage(update.Message, bot.Messages.DoNotUnderstand)
 		}
 	} else if update.Message.Photo != nil {
 		err := bot.handlePhoto(update.Message)
 		if err != nil {
 			log.Printf("[%s] cannot add photo to current album: %s", username, err)
-			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.ServerError)
+			bot.replyToCommandWithMessage(update.Message, bot.Messages.ServerError)
 			return
 		}
 		bot.dispatchMessage(update.Message)
-		bot.Telegram.replyWithMessage(update.Message, bot.Telegram.Messages.ThankYouMedia)
+		bot.replyWithMessage(update.Message, bot.Messages.ThankYouMedia)
 	} else if update.Message.Video != nil {
 		err := bot.handleVideo(update.Message)
 		if err != nil {
 			log.Printf("[%s] cannot add video to current album: %s", username, err)
-			bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.ServerError)
+			bot.replyToCommandWithMessage(update.Message, bot.Messages.ServerError)
 			return
 		}
 		bot.dispatchMessage(update.Message)
-		bot.Telegram.replyWithMessage(update.Message, bot.Telegram.Messages.ThankYouMedia)
+		bot.replyWithMessage(update.Message, bot.Messages.ThankYouMedia)
 	} else {
 		log.Printf("[%s] cannot handle this type of message", username)
-		bot.Telegram.replyToCommandWithMessage(update.Message, bot.Telegram.Messages.DoNotUnderstand)
+		bot.replyToCommandWithMessage(update.Message, bot.Messages.DoNotUnderstand)
 	}
 }
 
-func (bot *PhotoBot) dispatchMessage(message *tgbotapi.Message) {
-	for user, _ := range bot.Telegram.AuthorizedUsers {
+func (bot *TelegramBot) dispatchMessage(message *tgbotapi.Message) {
+	for user, _ := range bot.AuthorizedUsers {
 		if user != message.From.UserName {
-			if _, ok := bot.Telegram.ChatDB.Db[user]; !ok {
+			if _, ok := bot.ChatDB.Db[user]; !ok {
 				log.Printf("[%s] The chat db does not have any mapping for %s, skipping...", message.From.UserName, user)
 				continue
 			}
 
-			msg := tgbotapi.NewForward(bot.Telegram.ChatDB.Db[user], message.Chat.ID, message.MessageID)
+			msg := tgbotapi.NewForward(bot.ChatDB.Db[user], message.Chat.ID, message.MessageID)
 
-			_, err := bot.Telegram.API.Send(msg)
+			_, err := bot.API.Send(msg)
 			if err != nil {
-				log.Printf("[%s] Cannot dispatch message to %s (chat id = %d)", message.From.UserName, user, bot.Telegram.ChatDB.Db[user])
+				log.Printf("[%s] Cannot dispatch message to %s (chat id = %d)", message.From.UserName, user, bot.ChatDB.Db[user])
 			}
 		}
 	}
 }
 
-func (bot *PhotoBot) getFile(message *tgbotapi.Message, telegramFileId string, mediaStoreId string) error {
-	url, err := bot.Telegram.API.GetFileDirectURL(telegramFileId)
+func (bot *TelegramBot) getFile(message *tgbotapi.Message, telegramFileId string, mediaStoreId string) error {
+	url, err := bot.API.GetFileDirectURL(telegramFileId)
 	if err != nil {
 		return err
 	}
@@ -250,7 +243,7 @@ func (bot *PhotoBot) getFile(message *tgbotapi.Message, telegramFileId string, m
 	return nil
 }
 
-func (bot *PhotoBot) handlePhoto(message *tgbotapi.Message) error {
+func (bot *TelegramBot) handlePhoto(message *tgbotapi.Message) error {
 	// Find the best resolution among all available sizes
 	fileId := ""
 	maxWidth := 0
@@ -274,7 +267,7 @@ func (bot *PhotoBot) handlePhoto(message *tgbotapi.Message) error {
 	t := time.Unix(int64(message.Date), 0)
 	return bot.MediaStore.CommitPhoto(mediaStoreId, t, message.Caption)
 }
-func (bot *PhotoBot) handleVideo(message *tgbotapi.Message) error {
+func (bot *TelegramBot) handleVideo(message *tgbotapi.Message) error {
 	// Get a unique id
 	mediaStoreId := bot.MediaStore.GetUniqueID()
 
@@ -295,20 +288,20 @@ func (bot *PhotoBot) handleVideo(message *tgbotapi.Message) error {
 	return bot.MediaStore.CommitVideo(mediaStoreId, t, message.Caption)
 }
 
-func (bot *PhotoBot) handleHelpCommand(message *tgbotapi.Message) {
-	bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.Help)
+func (bot *TelegramBot) handleHelpCommand(message *tgbotapi.Message) {
+	bot.replyWithMessage(message, bot.Messages.Help)
 }
 
-func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
+func (bot *TelegramBot) handleShareCommand(message *tgbotapi.Message) {
 	albumList, err := bot.MediaStore.ListAlbums()
 	if err != nil {
 		log.Printf("[%s] cannot get album list: %s", message.From.UserName, err)
-		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
+		bot.replyToCommandWithMessage(message, bot.Messages.ServerError)
 		return
 	}
 
 	var text strings.Builder
-	text.WriteString(fmt.Sprintf(bot.Telegram.Messages.SharedAlbum, bot.Telegram.PerAlbumTokenValidity))
+	text.WriteString(fmt.Sprintf(bot.Messages.SharedAlbum, bot.PerAlbumTokenValidity))
 	text.WriteString("\n")
 	sort.Sort(sort.Reverse(albumList))
 	var tokenData TokenData = TokenData{
@@ -323,80 +316,80 @@ func (bot *PhotoBot) handleShareCommand(message *tgbotapi.Message) {
 			title = title + " 🔥"
 		}
 		tokenData.Entitlement = id
-		token := bot.Telegram.TokenGenerator.NewToken(tokenData)
-		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(id))
+		token := bot.TokenGenerator.NewToken(tokenData)
+		url := fmt.Sprintf("%s/s/%s/%s/album/%s/", bot.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token), url.PathEscape(id))
 		text.WriteString(fmt.Sprintf("- [%s %s](%s)\n", album.Date.Format("2006-01"), title, url))
 	}
 
-	bot.Telegram.replyWithMarkdownMessage(message, text.String())
+	bot.replyWithMarkdownMessage(message, text.String())
 }
 
-func (bot *PhotoBot) handleBrowseCommand(message *tgbotapi.Message) {
+func (bot *TelegramBot) handleBrowseCommand(message *tgbotapi.Message) {
 	var tokenData TokenData = TokenData{
 		Timestamp: time.Now(),
 		Username:  message.From.UserName,
 	}
 
 	// Global share
-	token := bot.Telegram.TokenGenerator.NewToken(tokenData)
-	url := fmt.Sprintf("%s/s/%s/%s/album/", bot.Telegram.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
-	bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.SharedGlobal, bot.Telegram.GlobalTokenValidity))
-	bot.Telegram.replyWithMessage(message, url)
+	token := bot.TokenGenerator.NewToken(tokenData)
+	url := fmt.Sprintf("%s/s/%s/%s/album/", bot.WebPublicURL, url.PathEscape(message.From.UserName), url.PathEscape(token))
+	bot.replyWithMessage(message, fmt.Sprintf(bot.Messages.SharedGlobal, bot.GlobalTokenValidity))
+	bot.replyWithMessage(message, url)
 }
 
-func (bot *PhotoBot) handleInfoCommand(message *tgbotapi.Message) {
+func (bot *TelegramBot) handleInfoCommand(message *tgbotapi.Message) {
 	album, err := bot.MediaStore.GetCurrentAlbum()
 	if err != nil {
 		log.Printf("[%s] cannot get current album: %s", message.From.UserName, err)
-		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
+		bot.replyToCommandWithMessage(message, bot.Messages.ServerError)
 		return
 	}
 
 	if album.Title != "" {
-		bot.Telegram.replyWithMessage(message, fmt.Sprintf(bot.Telegram.Messages.Info, album.Title))
+		bot.replyWithMessage(message, fmt.Sprintf(bot.Messages.Info, album.Title))
 	} else {
-		bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.InfoNoAlbum)
+		bot.replyWithMessage(message, bot.Messages.InfoNoAlbum)
 	}
 }
 
-func (bot *PhotoBot) handleNewAlbumCommand(message *tgbotapi.Message) {
-	bot.Telegram.replyWithForcedReply(message, bot.Telegram.Messages.MissingAlbumName)
+func (bot *TelegramBot) handleNewAlbumCommand(message *tgbotapi.Message) {
+	bot.replyWithForcedReply(message, bot.Messages.MissingAlbumName)
 }
 
-func (bot *PhotoBot) handleNewAlbumCommandReply(message *tgbotapi.Message) {
+func (bot *TelegramBot) handleNewAlbumCommandReply(message *tgbotapi.Message) {
 	albumName := message.Text
 
 	err := bot.MediaStore.NewAlbum(albumName)
 	if err != nil {
 		log.Printf("[%s] cannot create album '%s': %s", message.From.UserName, albumName, err)
-		bot.Telegram.replyToCommandWithMessage(message, bot.Telegram.Messages.ServerError)
+		bot.replyToCommandWithMessage(message, bot.Messages.ServerError)
 		return
 	}
 
-	bot.Telegram.replyWithMessage(message, bot.Telegram.Messages.AlbumCreated)
+	bot.replyWithMessage(message, bot.Messages.AlbumCreated)
 }
 
-func (telegram *TelegramBackend) replyToCommandWithMessage(message *tgbotapi.Message, text string) error {
+func (telegram *TelegramBot) replyToCommandWithMessage(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ReplyToMessageID = message.MessageID
 	_, err := telegram.API.Send(msg)
 	return err
 }
 
-func (telegram *TelegramBackend) replyWithMessage(message *tgbotapi.Message, text string) error {
+func (telegram *TelegramBot) replyWithMessage(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	_, err := telegram.API.Send(msg)
 	return err
 }
 
-func (telegram *TelegramBackend) replyWithMarkdownMessage(message *tgbotapi.Message, text string) error {
+func (telegram *TelegramBot) replyWithMarkdownMessage(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ParseMode = tgbotapi.ModeMarkdown
 	_, err := telegram.API.Send(msg)
 	return err
 }
 
-func (telegram *TelegramBackend) replyWithForcedReply(message *tgbotapi.Message, text string) error {
+func (telegram *TelegramBot) replyWithForcedReply(message *tgbotapi.Message, text string) error {
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
 	msg.ReplyMarkup = tgbotapi.ForceReply{
 		ForceReply: true,

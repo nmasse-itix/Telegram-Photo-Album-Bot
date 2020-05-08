@@ -8,15 +8,36 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	_ "github.com/nmasse-itix/Telegram-Photo-Album-Bot/statik"
 )
 
 type WebInterface struct {
+	MediaStore    *MediaStore
 	AlbumTemplate *template.Template
 	MediaTemplate *template.Template
 	IndexTemplate *template.Template
 	SiteName      string
+}
+
+func NewWebInterface(statikFS http.FileSystem) (*WebInterface, error) {
+	var err error
+
+	web := WebInterface{}
+	web.AlbumTemplate, err = getTemplate(statikFS, "/album.html.template", "album")
+	if err != nil {
+		return nil, err
+	}
+
+	web.MediaTemplate, err = getTemplate(statikFS, "/media.html.template", "media")
+	if err != nil {
+		return nil, err
+	}
+
+	web.IndexTemplate, err = getTemplate(statikFS, "/index.html.template", "index")
+	if err != nil {
+		return nil, err
+	}
+
+	return &web, nil
 }
 
 func slurpFile(statikFS http.FileSystem, filename string) (string, error) {
@@ -66,99 +87,99 @@ func getTemplate(statikFS http.FileSystem, filename string, name string) (*templ
 	return tmpl.Funcs(customFunctions).Parse(content)
 }
 
-func (bot *PhotoBot) HandleFileNotFound(w http.ResponseWriter, r *http.Request) {
+func (web *WebInterface) handleFileNotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "File not found", http.StatusNotFound)
 }
 
-func (bot *PhotoBot) HandleError(w http.ResponseWriter, r *http.Request) {
+func (web *WebInterface) handleError(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
-func (bot *PhotoBot) HandleDisplayAlbum(w http.ResponseWriter, r *http.Request, albumName string) {
+func (web *WebInterface) handleDisplayAlbum(w http.ResponseWriter, r *http.Request, albumName string) {
 	if albumName == "latest" {
 		albumName = ""
 	}
 
-	album, err := bot.MediaStore.GetAlbum(albumName, false)
+	album, err := web.MediaStore.GetAlbum(albumName, false)
 	if err != nil {
 		log.Printf("MediaStore.GetAlbum: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 
-	err = bot.WebInterface.AlbumTemplate.Execute(w, album)
+	err = web.AlbumTemplate.Execute(w, album)
 	if err != nil {
 		log.Printf("Template.Execute: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 }
 
-func (bot *PhotoBot) HandleDisplayIndex(w http.ResponseWriter, r *http.Request) {
-	albums, err := bot.MediaStore.ListAlbums()
+func (web *WebInterface) handleDisplayIndex(w http.ResponseWriter, r *http.Request) {
+	albums, err := web.MediaStore.ListAlbums()
 	if err != nil {
 		log.Printf("MediaStore.ListAlbums: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 
 	sort.Sort(sort.Reverse(albums))
-	err = bot.WebInterface.IndexTemplate.Execute(w, struct {
+	err = web.IndexTemplate.Execute(w, struct {
 		Title  string
 		Albums []Album
 	}{
-		bot.WebInterface.SiteName,
+		web.SiteName,
 		albums,
 	})
 	if err != nil {
 		log.Printf("Template.Execute: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 }
 
-func (bot *PhotoBot) HandleDisplayMedia(w http.ResponseWriter, r *http.Request, albumName string, mediaId string) {
+func (web *WebInterface) handleDisplayMedia(w http.ResponseWriter, r *http.Request, albumName string, mediaId string) {
 	if albumName == "latest" {
 		albumName = ""
 	}
 
-	media, err := bot.MediaStore.GetMedia(albumName, mediaId)
+	media, err := web.MediaStore.GetMedia(albumName, mediaId)
 	if err != nil {
 		log.Printf("MediaStore.GetMedia: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 
 	}
 
 	if media == nil {
-		bot.HandleFileNotFound(w, r)
+		web.handleFileNotFound(w, r)
 		return
 	}
 
-	err = bot.WebInterface.MediaTemplate.Execute(w, media)
+	err = web.MediaTemplate.Execute(w, media)
 	if err != nil {
 		log.Printf("Template.Execute: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 }
 
-func (bot *PhotoBot) HandleGetMedia(w http.ResponseWriter, r *http.Request, albumName string, mediaFilename string) {
+func (web *WebInterface) handleGetMedia(w http.ResponseWriter, r *http.Request, albumName string, mediaFilename string) {
 	if albumName == "latest" {
 		albumName = ""
 	}
 
-	fd, modtime, err := bot.MediaStore.OpenFile(albumName, mediaFilename)
+	fd, modtime, err := web.MediaStore.OpenFile(albumName, mediaFilename)
 	if err != nil {
 		log.Printf("MediaStore.OpenFile: %s", err)
-		bot.HandleError(w, r)
+		web.handleError(w, r)
 		return
 	}
 	defer fd.Close()
 	http.ServeContent(w, r, mediaFilename, modtime, fd)
 }
 
-func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (web *WebInterface) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	originalPath := r.URL.Path
 	var resource string
 	resource, r.URL.Path = ShiftPath(r.URL.Path)
@@ -179,13 +200,13 @@ func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					http.Redirect(w, r, originalPath+"/", http.StatusMovedPermanently)
 					return
 				}
-				bot.HandleDisplayAlbum(w, r, albumName)
+				web.handleDisplayAlbum(w, r, albumName)
 				return
 			} else if kind == "raw" && media != "" {
-				bot.HandleGetMedia(w, r, albumName, media)
+				web.handleGetMedia(w, r, albumName, media)
 				return
 			} else if kind == "media" && media != "" {
-				bot.HandleDisplayMedia(w, r, albumName, media)
+				web.handleDisplayMedia(w, r, albumName, media)
 				return
 			}
 		} else {
@@ -193,7 +214,7 @@ func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, originalPath+"/", http.StatusMovedPermanently)
 				return
 			}
-			bot.HandleDisplayIndex(w, r)
+			web.handleDisplayIndex(w, r)
 			return
 		}
 	} else if resource == "" {
@@ -201,5 +222,5 @@ func (bot *PhotoBot) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bot.HandleFileNotFound(w, r)
+	web.handleFileNotFound(w, r)
 }

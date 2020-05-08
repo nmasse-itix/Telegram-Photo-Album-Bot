@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/nmasse-itix/Telegram-Photo-Album-Bot/statik"
+	"github.com/rakyll/statik/fs"
 	"github.com/spf13/viper"
 )
 
@@ -122,10 +124,6 @@ func validateConfig() {
 		log.Fatal("No OpenID Connect Client Secret provided!")
 	}
 
-	if viper.GetString("WebInterface.OIDC.RedirectURL") == "" {
-		log.Fatal("No OpenID Connect Redirect URL provided!")
-	}
-
 	if viper.GetString("WebInterface.OIDC.ClientSecret") == "" {
 		log.Fatal("No OpenID Connect Client Secret provided!")
 	}
@@ -173,24 +171,24 @@ func getMessagesFromConfig() TelegramMessages {
 	}
 }
 
+func getSecretKey(configKey string, minLength int) []byte {
+	key, err := base64.StdEncoding.DecodeString(viper.GetString(configKey))
+	if err != nil {
+		panic(fmt.Sprintf("%s: %s", configKey, err))
+	}
+
+	if len(key) < 32 {
+		panic(fmt.Sprintf("%s: The given token generator authentication key is too short (got %d bytes, expected at least %d)!", configKey, len(key), minLength))
+	}
+
+	return key
+}
+
 func main() {
 	initConfig()
 	validateConfig()
 
-	// Create the Bot
-	photoBot := InitBot(viper.GetString("TargetDir"))
-	photoBot.Telegram.RetryDelay = time.Duration(viper.GetInt("Telegram.RetryDelay")) * time.Second
-	photoBot.Telegram.NewUpdateTimeout = viper.GetInt("Telegram.NewUpdateTimeout")
-	photoBot.Telegram.Commands = getCommandsFromConfig()
-	photoBot.Telegram.Messages = getMessagesFromConfig()
-	photoBot.WebInterface.SiteName = viper.GetString("WebInterface.SiteName")
-	photoBot.Telegram.WebPublicURL = viper.GetString("WebInterface.PublicURL")
-
-	// Fill the authorized users
-	for _, item := range viper.GetStringSlice("Telegram.AuthorizedUsers") {
-		photoBot.Telegram.AuthorizedUsers[item] = true
-	}
-
+	// Make sure the needed folder structure exists in the target folder
 	targetDir := viper.GetString("TargetDir")
 	for _, dir := range []string{"data", "db"} {
 		fullPath := filepath.Join(targetDir, dir)
@@ -200,63 +198,69 @@ func main() {
 		}
 	}
 
-	// Create the ChatDB and inject it
-	chatDB, err := InitChatDB(filepath.Join(targetDir, "db", "chatdb.yaml"))
-	if err != nil {
-		panic(err)
-	}
-	photoBot.Telegram.ChatDB = chatDB
-
-	// Create the MediaStore and inject it
+	// Create the MediaStore
 	mediaStore, err := InitMediaStore(filepath.Join(targetDir, "data"))
 	if err != nil {
 		panic(err)
 	}
-	photoBot.MediaStore = mediaStore
 
-	// Start the bot
-	photoBot.StartBot(viper.GetString("Telegram.Token"))
-	photoBot.Telegram.API.Debug = viper.GetBool("Telegram.Debug")
-
-	// Token Generator
-	tokenAuthenticationKey, err := base64.StdEncoding.DecodeString(viper.GetString("Telegram.TokenGenerator.AuthenticationKey"))
-	if err != nil {
-		panic(err)
-	}
-	if len(tokenAuthenticationKey) < 32 {
-		panic("The given token generator authentication key is too short!")
-	}
+	// Create the Token Generator
+	tokenAuthenticationKey := getSecretKey("Telegram.TokenGenerator.AuthenticationKey", 32)
 	tokenGenerator, err := NewTokenGenerator(tokenAuthenticationKey, crypto.SHA256)
 	if err != nil {
 		panic(err)
 	}
-	photoBot.Telegram.TokenGenerator = tokenGenerator
-	photoBot.Telegram.GlobalTokenValidity = viper.GetInt("Telegram.TokenGenerator.GlobalValidity")
-	photoBot.Telegram.PerAlbumTokenValidity = viper.GetInt("Telegram.TokenGenerator.PerAlbumValidity")
+
+	// Create the ChatDB
+	chatDB, err := InitChatDB(filepath.Join(targetDir, "db", "chatdb.yaml"))
+	if err != nil {
+		panic(err)
+	}
+
+	// Create the Bot
+	photoBot := NewTelegramBot()
+	photoBot.RetryDelay = time.Duration(viper.GetInt("Telegram.RetryDelay")) * time.Second
+	photoBot.NewUpdateTimeout = viper.GetInt("Telegram.NewUpdateTimeout")
+	photoBot.Commands = getCommandsFromConfig()
+	photoBot.Messages = getMessagesFromConfig()
+	photoBot.WebPublicURL = viper.GetString("WebInterface.PublicURL")
+	photoBot.MediaStore = mediaStore
+	photoBot.ChatDB = chatDB
+	photoBot.TokenGenerator = tokenGenerator
+	photoBot.GlobalTokenValidity = viper.GetInt("Telegram.TokenGenerator.GlobalValidity")
+	photoBot.PerAlbumTokenValidity = viper.GetInt("Telegram.TokenGenerator.PerAlbumValidity")
+
+	// Fill the authorized users
+	for _, item := range viper.GetStringSlice("Telegram.AuthorizedUsers") {
+		photoBot.AuthorizedUsers[item] = true
+	}
+
+	// Start the bot
+	photoBot.StartBot(viper.GetString("Telegram.Token"), viper.GetBool("Telegram.Debug"))
 
 	// Setup the web interface
+	statikFS, err := fs.New()
+	if err != nil {
+		panic(err)
+	}
+	web, err := NewWebInterface(statikFS)
+	if err != nil {
+		panic(err)
+	}
+	web.MediaStore = mediaStore
+	web.SiteName = viper.GetString("WebInterface.SiteName")
+
+	// Setup the security frontend
 	var oidc OpenIdSettings = OpenIdSettings{
 		ClientID:     viper.GetString("WebInterface.OIDC.ClientID"),
 		ClientSecret: viper.GetString("WebInterface.OIDC.ClientSecret"),
 		DiscoveryUrl: viper.GetString("WebInterface.OIDC.DiscoveryUrl"),
-		RedirectURL:  viper.GetString("WebInterface.OIDC.RedirectURL"),
+		RedirectURL:  GetOAuthCallbackURL(viper.GetString("WebInterface.PublicURL")),
 		GSuiteDomain: viper.GetString("WebInterface.OIDC.GSuiteDomain"),
 		Scopes:       viper.GetStringSlice("WebInterface.OIDC.Scopes"),
 	}
-	authenticationKey, err := base64.StdEncoding.DecodeString(viper.GetString("WebInterface.Sessions.AuthenticationKey"))
-	if err != nil {
-		panic(err)
-	}
-	if len(authenticationKey) < 32 {
-		panic("The given session authentication key is too short!")
-	}
-	encryptionKey, err := base64.StdEncoding.DecodeString(viper.GetString("WebInterface.Sessions.EncryptionKey"))
-	if err != nil {
-		panic(err)
-	}
-	if len(encryptionKey) < 32 {
-		panic("The given session encryption key is too short!")
-	}
+	authenticationKey := getSecretKey("WebInterface.Sessions.AuthenticationKey", 32)
+	encryptionKey := getSecretKey("WebInterface.Sessions.EncryptionKey", 32)
 	var sessions SessionSettings = SessionSettings{
 		AuthenticationKey: authenticationKey,
 		EncryptionKey:     encryptionKey,
@@ -270,7 +274,10 @@ func main() {
 	securityFrontend.GlobalTokenValidity = viper.GetInt("Telegram.TokenGenerator.GlobalValidity")
 	securityFrontend.PerAlbumTokenValidity = viper.GetInt("Telegram.TokenGenerator.PerAlbumValidity")
 
+	// Put the Web Interface behind the security frontend
+	securityFrontend.Protected = web
+
 	initLogFile()
 	go photoBot.Process()
-	photoBot.ServeWebInterface(viper.GetString("WebInterface.Listen"), securityFrontend)
+	ServeWebInterface(viper.GetString("WebInterface.Listen"), securityFrontend, statikFS)
 }
