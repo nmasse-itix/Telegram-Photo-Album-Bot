@@ -16,7 +16,6 @@
 <a href="latest/media/{{ .ID }}/"><img src="latest/raw/{{ .Files|photo }}" /></a>
 </li>
 {{ end }}
-<li><!-- Empty Flex element so that "justify-content: space-between" work as expected --></li>
 </ul>
 <h2>{{ .I18n.AllAlbums }}</h2>
 <ul class="album">
