@@ -15,7 +15,14 @@ type WebInterface struct {
 	AlbumTemplate *template.Template
 	MediaTemplate *template.Template
 	IndexTemplate *template.Template
-	SiteName      string
+	I18n          I18n
+}
+
+type I18n struct {
+	SiteName  string
+	Bio       string
+	LastMedia string
+	AllAlbums string
 }
 
 func NewWebInterface(statikFS http.FileSystem) (*WebInterface, error) {
@@ -116,6 +123,19 @@ func (web *WebInterface) handleDisplayAlbum(w http.ResponseWriter, r *http.Reque
 }
 
 func (web *WebInterface) handleDisplayIndex(w http.ResponseWriter, r *http.Request) {
+	lastAlbum, err := web.MediaStore.GetAlbum("", false)
+	if err != nil {
+		log.Printf("MediaStore.GetAlbum(latest): %s", err)
+		web.handleError(w, r)
+		return
+	}
+
+	mediaCount := len(lastAlbum.Media)
+	if mediaCount >= 5 { // Max 5 media
+		mediaCount = 5
+	}
+	lastMedia := lastAlbum.Media[len(lastAlbum.Media)-mediaCount : len(lastAlbum.Media)]
+
 	albums, err := web.MediaStore.ListAlbums()
 	if err != nil {
 		log.Printf("MediaStore.ListAlbums: %s", err)
@@ -124,11 +144,19 @@ func (web *WebInterface) handleDisplayIndex(w http.ResponseWriter, r *http.Reque
 	}
 
 	sort.Sort(sort.Reverse(albums))
+	if len(albums) > 0 && albums[0].ID == "" {
+		// Latest album should be the first item. Replace it with the one retrieved above
+		// with metadata loaded.
+		albums[0] = *lastAlbum
+	}
+
 	err = web.IndexTemplate.Execute(w, struct {
-		Title  string
-		Albums []Album
+		I18n      I18n
+		LastMedia []Media
+		Albums    []Album
 	}{
-		web.SiteName,
+		web.I18n,
+		lastMedia,
 		albums,
 	})
 	if err != nil {

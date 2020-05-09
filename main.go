@@ -61,6 +61,11 @@ func initConfig() {
 	viper.SetDefault("Telegram.TokenGenerator.GlobalValidity", 7)
 	viper.SetDefault("Telegram.TokenGenerator.PerAlbumValidity", 15)
 
+	// Web Interface I18n
+	viper.SetDefault("WebInterface.I18n.AllAlbums", "All my albums")
+	viper.SetDefault("WebInterface.I18n.Bio", "Hello, I'm the photo bot. Here are all the photos and videos collected so far.")
+	viper.SetDefault("WebInterface.I18n.LastMedia", "My last photos and videos")
+
 	viper.SetConfigName("photo-bot") // name of config file (without extension)
 	viper.AddConfigPath("/etc/photo-bot/")
 	viper.AddConfigPath("$HOME/.photo-bot")
@@ -168,6 +173,7 @@ func getMessagesFromConfig() TelegramMessages {
 		NoUsername:       viper.GetString("Telegram.Messages.NoUsername"),
 		SharedAlbum:      viper.GetString("Telegram.Messages.SharedAlbum"),
 		SharedGlobal:     viper.GetString("Telegram.Messages.SharedGlobal"),
+		ThankYouMedia:    viper.GetString("Telegram.Messages.ThankYouMedia"),
 	}
 }
 
@@ -182,6 +188,15 @@ func getSecretKey(configKey string, minLength int) []byte {
 	}
 
 	return key
+}
+
+func getWebI18nFromConfig() I18n {
+	var i18n I18n
+	i18n.SiteName = viper.GetString("WebInterface.SiteName")
+	i18n.AllAlbums = viper.GetString("WebInterface.I18n.AllAlbums")
+	i18n.Bio = viper.GetString("WebInterface.I18n.Bio")
+	i18n.LastMedia = viper.GetString("WebInterface.I18n.LastMedia")
+	return i18n
 }
 
 func main() {
@@ -248,7 +263,7 @@ func main() {
 		panic(err)
 	}
 	web.MediaStore = mediaStore
-	web.SiteName = viper.GetString("WebInterface.SiteName")
+	web.I18n = getWebI18nFromConfig()
 
 	// Setup the security frontend
 	var oidc OpenIdSettings = OpenIdSettings{

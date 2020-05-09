@@ -2,13 +2,25 @@
 
 /* Common */
 
-h1 {
+body {
     font-family: sans-serif;
+}
+
+a {
+    color: inherit; /* blue colors for links too */
+    text-decoration: inherit; /* no underline */
 }
 
 html {
     height: 100%;
     width: 100%;
+}
+
+li img, li video {
+    max-height: 100%;
+    min-width: 100%;
+    object-fit: cover;
+    vertical-align: bottom;
 }
 
 /* Album */
@@ -17,7 +29,7 @@ body.album {
     margin: 3vh;
 }
 
-.album ul {
+body.album ul {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -25,7 +37,7 @@ body.album {
     margin: 0;
 }
 
-.album li {
+body.album li {
     /*
      * Line height is expressed as a factor of the viewport width since
      * we want to fit roughly the same amount of photos per line,
@@ -37,14 +49,7 @@ body.album {
     padding: 1px;
 }
 
-.album li img, .album li video {
-    max-height: 100%;
-    min-width: 100%;
-    object-fit: cover;
-    vertical-align: bottom;
-}
-
-.album li:last-child {
+body.album li:last-child {
     flex-grow: 10;
 }
 
@@ -66,11 +71,77 @@ body.media h1 {
     margin-right: 3vh;
 }
 
-.media img, .media video {
+body.media img, body.media video {
     object-fit: contain;
     max-height: 80%;
-    max-width: 100%;
     margin-top: 3vh;
     margin-left: 3vh;
     margin-right: 3vh;
+}
+
+/* Index */
+
+body.index {
+    margin: 3vw;
+}
+
+body.index h2 {
+    margin-top: 2em;
+}
+
+body.index h1 {
+    text-align: center;
+}
+
+body.index ul.media {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 0;
+    margin: 0;
+}
+
+body.index ul.media li {
+    /*
+     * Line height is expressed as a factor of the viewport width since
+     * we want to fit roughly the same amount of photos per line,
+     * independently of the user's device
+     */
+    height: 13vw;
+    flex-grow: 0.5;
+    list-style-type: none;
+    padding-right: 1vw;
+}
+
+body.index ul.media li:last-child {
+    flex-grow: 10;
+}
+
+body.index ul.album {
+    display: grid;
+    grid-gap: 3vw;
+    grid-auto-flow: row;
+    grid-template-columns: 15vw 15vw 15vw 15vw 15vw;
+    /*
+     * Line height is expressed as a factor of the viewport width since
+     * we want to fit roughly the same amount of photos per line,
+     * independently of the user's device
+     */
+    grid-auto-rows: 13vw;
+    padding: 0;
+    margin: 0;
+}
+
+body.index ul.album div {
+    margin-top: 1vh;
+    font-size: large;
+}
+
+body.index ul.album li {
+    list-style-type: none;
+    text-align: center;
+}
+
+body.index .no-cover {
+    font-size: 4em;
 }

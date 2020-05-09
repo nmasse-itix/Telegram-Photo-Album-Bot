@@ -1,21 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ .Title }}</title>
+    <title>{{ .I18n.SiteName }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=contain">
     <link rel="stylesheet" href="/css/main.css">
 </head>
 <body class="index">
-<h1>{{ .Title }}</h1>
-<ul>
+<h1>{{ .I18n.SiteName }}</h1>
+<p>{{ .I18n.Bio }}</p>
+<h2>{{ .I18n.LastMedia }}</h2>
+<ul class="media">
+{{ range .LastMedia }}
+<li>
+<a href="latest/media/{{ .ID }}/"><img src="latest/raw/{{ .Files|photo }}" /></a>
+</li>
+{{ end }}
+<li><!-- Empty Flex element so that "justify-content: space-between" work as expected --></li>
+</ul>
+<h2>{{ .I18n.AllAlbums }}</h2>
+<ul class="album">
 {{ range .Albums }}
 <li>
 {{ if eq .ID "" }}
-<a href="latest/">{{ .Date|short }} {{ .Title }}</a>
+<a href="latest/">
 {{ else }}
-<a href="{{ .ID }}/">{{ .Date|short }} {{ .Title }}</a>
+<a href="{{ .ID }}/">
 {{ end }}
+{{ if ne .CoverMedia.ID "" }}
+{{ if eq .ID "" }}
+<img src="latest/raw/{{ .CoverMedia.Files|photo }}" />
+{{ else }}
+<img src="{{ .ID }}/raw/{{ .CoverMedia.Files|photo }}" />
+{{ end }}
+{{ else }}
+<span class="no-cover">🚧</span>
+{{ end }}
+<div>{{ .Title }}</div></a>
 </li>
 {{ end }}
 </ul>

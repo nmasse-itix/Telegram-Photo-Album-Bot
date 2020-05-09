@@ -22,10 +22,11 @@ type MediaStore struct {
 }
 
 type Album struct {
-	ID    string    `yaml:"-"` // Not part of the YAML struct
-	Title string    `yaml:"title"`
-	Date  time.Time `yaml:"date"`
-	Media []Media   `yaml:"-"` // Not part of the YAML struct
+	ID         string    `yaml:"-"` // Not part of the YAML struct
+	Title      string    `yaml:"title"`
+	Date       time.Time `yaml:"date"`
+	Media      []Media   `yaml:"-"` // Not part of the YAML struct
+	CoverMedia Media     `yaml:"cover,omitempty"`
 }
 
 type Media struct {
@@ -34,6 +35,11 @@ type Media struct {
 	Files   []string  `yaml:"-"` // Not part of the YAML struct
 	Caption string    `yaml:"caption"`
 	Date    time.Time `yaml:"date"`
+}
+
+// A media without ID will not be serialized in YAML
+func (m *Media) IsZero() bool {
+	return m.ID == ""
 }
 
 func InitMediaStore(storeLocation string) (*MediaStore, error) {
@@ -160,6 +166,17 @@ func (store *MediaStore) GetAlbum(name string, metadataOnly bool) (*Album, error
 		return nil, err
 	}
 
+	// If there is a cover media defined, find the corresponding files
+	if !album.CoverMedia.IsZero() {
+		paths, err := filepath.Glob(filepath.Join(store.StoreLocation, filename, album.CoverMedia.ID+".*"))
+		if err == nil { // Best effort
+			album.CoverMedia.Files = make([]string, len(paths))
+			for j, path := range paths {
+				album.CoverMedia.Files[j] = filepath.Base(path)
+			}
+		}
+	}
+
 	if metadataOnly {
 		return &album, nil
 	}
@@ -167,6 +184,10 @@ func (store *MediaStore) GetAlbum(name string, metadataOnly bool) (*Album, error
 	err = store.fillAlbumContent(filename, &album)
 	if err != nil {
 		return nil, err
+	}
+
+	if album.CoverMedia.IsZero() {
+		album.setDefaultCover()
 	}
 
 	return &album, nil
@@ -244,19 +265,43 @@ func (store *MediaStore) GetCurrentAlbum() (*Album, error) {
 	return store.GetAlbum("", true)
 }
 
+func (album *Album) setDefaultCover() {
+	if len(album.Media) > 0 {
+		var cover Media
+		for _, media := range album.Media {
+			if media.Type == "photo" { // use the first photo of the album as cover media
+				cover = media
+				break
+			}
+
+			if cover.IsZero() { // otherwise, fallback to the first media
+				cover = media
+			}
+		}
+		album.CoverMedia = cover
+	}
+}
+
 func (store *MediaStore) CloseAlbum() error {
-	yamlData, err := ioutil.ReadFile(filepath.Join(store.StoreLocation, ".current", "meta.yaml"))
+	album, err := store.GetAlbum("", false)
 	if err != nil {
 		return err
 	}
 
-	var metadata Album
-	err = yaml.UnmarshalStrict(yamlData, &metadata)
-	if err != nil {
-		return err
+	if album.CoverMedia.ID != "" {
+		// Write back the metadata
+		yamlData, err := yaml.Marshal(album)
+		if err != nil {
+			return err
+		}
+
+		err = ioutil.WriteFile(filepath.Join(store.StoreLocation, ".current", "meta.yaml"), yamlData, 0644)
+		if err != nil {
+			return err
+		}
 	}
 
-	folderName := metadata.Date.Format("2006-01-02") + "-" + sanitizeAlbumName(metadata.Title)
+	folderName := album.Date.Format("2006-01-02") + "-" + sanitizeAlbumName(album.Title)
 	err = os.Rename(filepath.Join(store.StoreLocation, ".current"), filepath.Join(store.StoreLocation, folderName))
 	if err != nil {
 		return err
