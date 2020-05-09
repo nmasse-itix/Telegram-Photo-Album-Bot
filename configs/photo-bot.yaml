@@ -1,0 +1,27 @@
+TargetDir: /srv/photo-bot
+LogFile: /srv/photo-bot/bot.log
+
+WebInterface:
+  Listen: :8080
+  PublicURL: http://localhost:8080
+  OIDC:
+    DiscoveryUrl: https://accounts.google.com
+    ClientID: <YOUR_CLIENT_ID>.apps.googleusercontent.com
+    ClientSecret: <YOUR_CLIENT_SECRET>
+    GSuiteDomain: example.test
+    Scopes:
+    - profile
+    - email
+  Sessions:
+    EncryptionKey: # paste here the output of `openssl rand -base64 32`
+    AuthenticationKey: # paste here the output of `openssl rand -base64 32`
+    SecureCookie: false
+
+Telegram:
+  TokenGenerator:
+    AuthenticationKey: # paste here the output of `openssl rand -base64 32`
+  Token: <YOUR_TELEGRAM_BOT_TOKEN>
+  Debug: true
+  AuthorizedUsers:
+  - john
+  - jane

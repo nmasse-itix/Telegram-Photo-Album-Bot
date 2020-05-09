@@ -2,22 +2,13 @@
 
 ## Compilation
 
-Fetch dependencies.
-
-```sh
-go get -u github.com/go-telegram-bot-api/telegram-bot-api
-go get -u github.com/spf13/viper
-go get -u gopkg.in/yaml.v2
-go get -u github.com/rakyll/statik
-```
-
 Pack all web files
 
 ```sh
 go generate
 ```
 
-Compile for Raspberry PI.
+Compile for your target platform (example given for a Raspberry PI 3).
 
 ```sh
 GOOS=linux GOARCH=arm64 go build -o photo-bot
@@ -49,16 +40,9 @@ chown bot:bot /srv/photo-bot
 scp photo-bot root@raspberry-pi.example.test:/opt/photo-bot/bin/
 ```
 
-Create a file named `photo-bot.yaml` in `/opt/photo-bot/etc/`.
+Create a file named `photo-bot.yaml` in `/opt/photo-bot/etc/`, using the [provided config sample](configs/photo-bot.yaml) as a starting base.
 
-```yaml
-TelegramToken: "bot.token.here"
-TelegramDebug: true
-TargetDir: /srv/photo-bot
-AuthorizedUsers:
-- john
-- jane
-```
+**Note:** the Authentication and Encryption Keys can be created using `openssl rand -base64 32`
 
 ```sh
 chown bot:bot /opt/photo-bot/etc/photo-bot.yaml
@@ -72,23 +56,7 @@ sudo -u bot /opt/photo-bot/bin/photo-bot
 ```
 
 Create the startup script in `/etc/init.d/photo-bot`.
-
-```sh
-#!/bin/sh /etc/rc.common
-# photo-bot
-
-# Start late in the boot process
-START=80
-STOP=20
-
-start() {
-  cd /opt/photo-bot/etc/ && start-stop-daemon -c bot -u bot -x /opt/photo-bot/bin/photo-bot -b -S
-}
-
-stop() {
-  start-stop-daemon -c bot -u bot -x /opt/photo-bot/bin/photo-bot -b -K
-}
-```
+A sample init script is [provided in the init folder](init/photo-bot).
 
 ```sh
 chmod 755 /etc/init.d/photo-bot

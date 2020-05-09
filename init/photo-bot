@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+# photo-bot
+
+# Start late in the boot process
+START=80
+STOP=20
+
+start() {
+  cd /opt/photo-bot/etc/ && start-stop-daemon -c bot -u bot -x /opt/photo-bot/bin/photo-bot -b -S
+}
+
+stop() {
+  start-stop-daemon -c bot -u bot -x /opt/photo-bot/bin/photo-bot -b -K
+}
