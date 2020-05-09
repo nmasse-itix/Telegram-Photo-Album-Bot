@@ -24,6 +24,10 @@ Talk to [BotFather](https://core.telegram.org/bots#6-botfather) to create your b
 
 Keep your bot token secure and safe!
 
+## Create an OpenID Connect client
+
+Follow the steps described in [Use your Google Account as an OpenID Connect provider](https://www.itix.fr/blog/use-google-account-openid-connect-provider/) to use your Google Suite with OpenID Connect.
+
 ## Installation
 
 On your Raspberry PI.
