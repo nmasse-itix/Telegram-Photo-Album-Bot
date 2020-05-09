@@ -131,8 +131,8 @@ func (web *WebInterface) handleDisplayIndex(w http.ResponseWriter, r *http.Reque
 	}
 
 	mediaCount := len(lastAlbum.Media)
-	if mediaCount >= 5 { // Max 5 media
-		mediaCount = 5
+	if mediaCount >= 4 { // Max 4 media
+		mediaCount = 4
 	}
 	lastMedia := lastAlbum.Media[len(lastAlbum.Media)-mediaCount : len(lastAlbum.Media)]
 
