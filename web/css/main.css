@@ -17,10 +17,16 @@ html {
 }
 
 li img, li video {
-    max-height: 100%;
+    height: 100%;
+    /* Safari prefers min-width rather than width. Firefox don't care. */
     min-width: 100%;
     object-fit: cover;
     vertical-align: bottom;
+}
+
+ul {
+    padding: 0;
+    margin: 0;
 }
 
 /* Album */
@@ -33,8 +39,6 @@ body.album ul {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    padding: 0;
-    margin: 0;
 }
 
 body.album li {
@@ -74,6 +78,7 @@ body.media h1 {
 body.media img, body.media video {
     object-fit: contain;
     max-height: 80%;
+    min-width: 100%;
     margin-top: 3vh;
     margin-left: 3vh;
     margin-right: 3vh;
@@ -93,55 +98,68 @@ body.index h1 {
     text-align: center;
 }
 
-body.index ul.media {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    padding: 0;
-    margin: 0;
-}
-
-body.index ul.media li {
-    /*
-     * Line height is expressed as a factor of the viewport width since
-     * we want to fit roughly the same amount of photos per line,
-     * independently of the user's device
-     */
-    height: 13vw;
-    flex-grow: 0.5;
-    list-style-type: none;
-    padding-right: 1vw;
-}
-
-body.index ul.media li:last-child {
-    flex-grow: 10;
-}
-
-body.index ul.album {
+body.index ul {
     display: grid;
     grid-gap: 3vw;
     grid-auto-flow: row;
-    grid-template-columns: 15vw 15vw 15vw 15vw 15vw;
+    grid-template-columns: 20vw 20vw 20vw 20vw;
     /*
      * Line height is expressed as a factor of the viewport width since
      * we want to fit roughly the same amount of photos per line,
      * independently of the user's device
      */
-    grid-auto-rows: 13vw;
-    padding: 0;
-    margin: 0;
+     grid-auto-rows: 20vw;
 }
 
-body.index ul.album div {
-    margin-top: 1vh;
-    font-size: large;
+body.index ul li {
+    list-style-type: none;
 }
 
 body.index ul.album li {
-    list-style-type: none;
-    text-align: center;
+    background-color: #CCC;
 }
 
-body.index .no-cover {
+body.index ul li a {
+    display: flex;
+    text-align: center;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+}
+
+/* Album Name */
+body.index ul.album div:last-child {
+    /*font-size: re;*/
+    height: 2vw;
+    line-height: 2vw;
+    flex-grow: 0;
+    flex-shrink: 0;
+    background-color: #999;
+    /* Sigh! https://codepen.io/CrocoDillon/pen/jgmwt */
+    font-size: calc(0.6vw + 0.6vh + 0.2vmin);
+}
+
+body.index ul.album img {
+    height: 18vw;
+    object-fit: cover;
+}
+
+body.index ul.media img {
+    object-fit: contain;
+}
+
+body.index div.no-cover {
     font-size: 4em;
 }
+
+/* hide album titles on small screens */
+@media (max-width: 640px) {
+    body.index ul.album div {
+        display: none;
+    }
+    body.index ul.album img {
+        height: 20vw;
+    }
+}
+
