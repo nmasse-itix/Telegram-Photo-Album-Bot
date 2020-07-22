@@ -50,7 +50,7 @@ func getBufferFor(data TokenData) []byte {
 	//fmt.Printf("Days since Y2K = %d\n", daysSinceY2K)
 
 	// Pack the token data in a buffer
-	// - number of days since epoch
+	// - number of days since Y2K
 	// - username that generated the token
 	// - entitlement for the resulting token
 	usernameBytes := []byte(data.Username)
