@@ -3,7 +3,16 @@
 set -e # Do not continue if jmeter fails
 
 : ${JMETER:=jmeter}
-HEAP="-Xms1g -Xmx1g -XX:MaxMetaspaceSize=256m"
+export HEAP="-Xms1g -Xmx1g -XX:MaxMetaspaceSize=256m"
 date="$(date +%F-%H-%M-%S)"
-JVM_ARGS="-Djmeter.reportgenerator.report_title=Telegram-Token-Performance-Test"
-$JMETER -n -t telegram-token.jmx -l "results-$date.csv" -e -o "report-$date"
+
+for scenario in GetHomePage GetAlbum GetMedia GetRawVideo GetRawPhoto; do
+  echo
+  echo "================================================================================"
+  echo "Running scenario $scenario..."
+  echo "================================================================================"
+  echo
+  export JVM_ARGS="-Djmeter.reportgenerator.report_title=$scenario"
+  $JMETER -n -t telegram-token.jmx -l "results-$date-$scenario.csv" -e -o "report-$date-$scenario" -Jscenario=$scenario
+  sleep 2
+done
