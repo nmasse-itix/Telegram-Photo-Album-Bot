@@ -30,7 +30,7 @@ release() {
     export GOARM
   fi
 
-  go build -ldflags " -w $LFLAGS" -o "bin/$NAME$EXT"
+  CGO_ENABLED=0 go build -ldflags " -w $LFLAGS" -o "bin/$NAME$EXT"
   tar -czf "release/$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz" -C bin/ "$NAME$EXT"
   (cd release && sha1sum "$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz" > "$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz.sha1")
   rm -f "bin/$NAME$EXT"
