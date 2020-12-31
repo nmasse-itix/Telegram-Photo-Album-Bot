@@ -32,7 +32,7 @@ release() {
 
   go build -ldflags " -w $LFLAGS" -o "bin/$NAME$EXT"
   tar -czf "release/$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz" -C bin/ "$NAME$EXT"
-  sha1sum "release/$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz" > "release/$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz.sha1"
+  (cd release && sha1sum "$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz" > "$NAME-$GOOS-$GOARCH$ARM_EXT.tar.gz.sha1")
   rm -f "bin/$NAME$EXT"
 }
 
@@ -61,7 +61,7 @@ if [ -z "$CURRENT_TAG" ]; then
 fi
 
 gh auth status
-if ! gh release list | grep -qx "$VERSION"; then
+if ! gh release list | cut -f3 | grep -qx "$VERSION"; then
   echo "Creating the $VERSION release..."
   gh release create "$VERSION" release/* -d --target "$CURRENT_COMMIT_ID" -n "Released v$VERSION" --title "v$VERSION"
 else
