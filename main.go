@@ -1,4 +1,4 @@
-//go:generate go run github.com/rakyll/statik -src=web/ -include=*.html,*.css,*.js,*.template
+//go:generate statik -src=web/ -include=*.html,*.css,*.js,*.template
 
 package main
 
