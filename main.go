@@ -1,4 +1,4 @@
-//go:generate statik -src=web/ -include=*.html,*.css,*.js,*.template
+//go:generate statik -f -src=web/ -include=*.html,*.css,*.js,*.template
 
 package main
 
