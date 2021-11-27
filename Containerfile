@@ -1,5 +1,4 @@
-FROM alpine:latest
-RUN apk add -U --no-cache ca-certificates
+FROM scratch
 ARG BUILT_ARTIFACT
 ADD "$BUILT_ARTIFACT" /
 EXPOSE 8080
