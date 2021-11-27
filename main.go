@@ -70,6 +70,13 @@ func initConfig() {
 	viper.AddConfigPath("/etc/photo-bot/")
 	viper.AddConfigPath("$HOME/.photo-bot")
 	viper.AddConfigPath(".") // optionally look for config in the working directory
+
+	viper.BindEnv("Telegram.Token", "PHOTOBOT_TELEGRAM_TOKEN")
+	viper.BindEnv("WebInterface.OIDC.ClientSecret", "PHOTOBOT_OIDC_CLIENT_SECRET")
+	viper.BindEnv("WebInterface.Sessions.AuthenticationKey", "PHOTOBOT_SESSION_AUTHENTICATION_KEY")
+	viper.BindEnv("WebInterface.Sessions.EncryptionKey", "PHOTOBOT_SESSION_ENCRYPTION_KEY")
+	viper.BindEnv("Telegram.TokenGenerator.AuthenticationKey", "PHOTOBOT_TOKEN_GENERATOR_AUTHENTICATION_KEY")
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Cannot read config file: %s\n", err))
