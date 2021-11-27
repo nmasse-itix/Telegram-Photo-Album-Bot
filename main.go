@@ -136,10 +136,6 @@ func validateConfig() {
 		log.Fatal("No OpenID Connect Client Secret provided!")
 	}
 
-	if viper.GetString("WebInterface.OIDC.ClientSecret") == "" {
-		log.Fatal("No OpenID Connect Client Secret provided!")
-	}
-
 	if viper.GetString("WebInterface.Sessions.AuthenticationKey") == "" {
 		log.Fatal("No Cookie Authentication Key provided!")
 	}
