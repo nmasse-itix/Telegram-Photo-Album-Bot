@@ -2,4 +2,6 @@ FROM scratch
 ARG BUILT_ARTIFACT
 ADD "$BUILT_ARTIFACT" /
 EXPOSE 8080
-ENTRYPOINT /photo-bot
+ENTRYPOINT [ "/photo-bot" ]
+CMD []
+
