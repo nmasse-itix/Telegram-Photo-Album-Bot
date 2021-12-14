@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -23,7 +22,7 @@ func ShiftPath(p string) (head, tail string) {
 	return p[1:i], p[i:]
 }
 
-func ServeWebInterface(listenAddr string, webInterface http.Handler, staticFiles http.FileSystem) {
+func ServeWebInterface(listenAddr string, webInterface http.Handler, staticFiles http.FileSystem) error {
 	router := http.NewServeMux()
 	router.Handle("/js/", http.FileServer(staticFiles))
 	router.Handle("/css/", http.FileServer(staticFiles))
@@ -33,5 +32,5 @@ func ServeWebInterface(listenAddr string, webInterface http.Handler, staticFiles
 		Addr:    listenAddr,
 		Handler: router,
 	}
-	log.Fatal(server.ListenAndServe())
+	return server.ListenAndServe()
 }

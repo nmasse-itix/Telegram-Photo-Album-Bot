@@ -297,5 +297,9 @@ func main() {
 
 	initLogFile()
 	go photoBot.Process()
-	ServeWebInterface(viper.GetString("WebInterface.Listen"), securityFrontend, statikFS)
+
+	err = ServeWebInterface(viper.GetString("WebInterface.Listen"), securityFrontend, statikFS)
+	if err != nil {
+		panic(err)
+	}
 }
